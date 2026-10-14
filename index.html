@@ -3021,7 +3021,7 @@ document.addEventListener('visibilitychange', function(){
    4. Results are saved on this device first. A failed upload is
       kept in an outbox until the referee taps Retry.
    ============================================================ */
-var LIVE_DB = '';          // Firebase Realtime Database URL, set when Starport Live is set up
+var LIVE_DB = 'https://starport-live-default-rtdb.asia-southeast1.firebasedatabase.app';          // Firebase Realtime Database URL, set when Starport Live is set up
 var LIVE_NS = '';          // only used for local testing against the Firebase emulator
 var LIVE_SCHEMA = 1;       // data format version shared with Starport Live
 var LIVE_APP_VERSION = 'scoreboard-1.1';
@@ -3561,7 +3561,7 @@ function liveHandleLink(){
    only meets Live through the "Connect to event" button.
    ============================================================ */
 var FIE_RELAY = [[2,2],[0,1],[1,0],[0,2],[2,0],[1,1],[0,0],[1,2],[2,1]];  // 3-6,1-5,2-4,1-6,3-4,2-5,1-4,2-6,3-5
-var LIVE_PUBLIC_URL = '';   // public web address of this app, used for share links when running inside the store app
+var LIVE_PUBLIC_URL = 'https://portusstellaelab.github.io/starportfencing/';   // public web address of this app, used for share links when running inside the store app
 var LH = null;              // host session
 var LV = null;              // viewer session
 var lvRenderT = null;
