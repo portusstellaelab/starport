@@ -307,6 +307,30 @@ label{display:block;font-size:12px;font-weight:500;color:var(--muted);text-trans
 .lv-relay .lr-r span:nth-child(3){text-align:center;font-family:'DM Mono',monospace;color:var(--gold);}
 .lv-relay .lr-r span:nth-child(4){text-align:right;}
 .lv-relay .lr-r.dim{color:var(--muted);}
+.lv-pos{display:inline-block;min-width:18px;height:18px;line-height:18px;border-radius:9px;background:rgba(201,162,39,.25);color:var(--gold);font-size:11px;text-align:center;margin-right:5px;font-family:'DM Mono',monospace;}
+.lv-check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);text-transform:none;letter-spacing:0;margin:2px 0 10px;}
+.lv-check input{width:20px;height:20px;padding:0;margin:0;-webkit-appearance:checkbox;appearance:auto;accent-color:var(--gold);flex-shrink:0;}
+.lv-order{margin:-2px 0 10px 32px;}
+.lv-order summary{font-size:12px;color:var(--blue2);cursor:pointer;padding:2px 0 6px;}
+.lv-pairs{border:1px solid var(--border);border-radius:10px;overflow:hidden;max-height:40vh;overflow-y:auto;}
+.lv-pair{padding:8px 10px;border-top:1px solid var(--border);font-size:14px;}
+.lv-pair:first-child{border-top:none;}
+.lv-pair span{color:var(--muted);font-size:12px;margin:0 4px;}
+.lv-pair.bye{color:var(--muted);}
+.lv-ci{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:10px;background:rgba(46,125,212,.12);border:1px solid rgba(46,125,212,.5);font-size:14px;}
+.lv-ci span{color:var(--muted);font-size:12px;}
+.lv-ci.ok{background:rgba(46,204,113,.10);border-color:rgba(46,204,113,.45);}
+.lv-ci.ok span{margin-left:auto;}
+.lv-ci.closed{background:rgba(255,255,255,.04);border-color:var(--border);color:var(--muted);}
+.lv-ci-list{max-height:48vh;overflow-y:auto;margin-top:8px;border:1px solid var(--border);border-radius:10px;}
+.lv-ci-row{display:flex;justify-content:space-between;align-items:center;width:100%;text-align:left;padding:12px;border-top:1px solid var(--border);font-size:16px;}
+.lv-ci-row:first-child{border-top:none;}
+.lv-ci-row small{display:block;color:var(--muted);font-size:12px;font-weight:400;}
+.lv-ci-row em{font-style:normal;color:#4cd37b;font-size:13px;}
+.lv-ci-row.done{opacity:.7;}
+.lv-poster{text-align:center;}
+.lv-poster-t{font-family:'Bebas Neue',sans-serif;font-size:40px;letter-spacing:3px;color:var(--gold);}
+.lv-poster-n{font-weight:700;font-size:18px;margin-bottom:6px;}
 .lv-x{width:32px;height:32px;border-radius:8px;color:var(--muted);font-size:20px;flex-shrink:0;}
 .held-cards-line{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin:2px 0 8px;font-family:'DM Mono',monospace;min-height:15px;}
 
@@ -3862,6 +3886,7 @@ function lvBaseUrl(){
   try { if (/^https?:$/.test(location.protocol)) return location.origin + location.pathname; } catch(e){}
   return LIVE_PUBLIC_URL || '';
 }
+function lvCheckinLink(code){ var b = lvBaseUrl(); return b ? b + '#checkin=' + code : ''; }
 function lvViewLink(code){ var b = lvBaseUrl(); return b ? b + '#view=' + code : ''; }
 function lvRefLink(code, mid){ var b = lvBaseUrl(); return b ? b + '#live=' + code + '&match=' + mid : ''; }
 function lvRecent(){ var r = Store.get('starport_lv_recent', []); return Array.isArray(r) ? r : []; }
@@ -3986,7 +4011,7 @@ function lvModel(pub, res){
   var fs = (pub.fencers && typeof pub.fencers==='object') ? pub.fencers : {};
   Object.keys(fs).slice(0,500).forEach(function(k){
     var f = fs[k]; if (!f || typeof f!=='object') return;
-    var o = { id:sId(k), name:sStr(f.name,40), club:sStr(f.club,40), country:sCountry(f.country), skill:sInt(f.skill,1,5,3) };
+    var o = { id:sId(k), name:sStr(f.name,40), club:sStr(f.club,40), country:sCountry(f.country), skill:sInt(f.skill,1,5,3), absent:f.absent===true };
     if (o.id && o.name){ m.fencers.push(o); m.fmap[o.id] = o; }
   });
   m.fencers.sort(function(a,b){ return a.name.localeCompare(b.name); });
@@ -4002,6 +4027,10 @@ function lvModel(pub, res){
   Object.keys(ms).slice(0,600).forEach(function(k){ var c = liveCleanMatch(k, ms[k], m.meta.weapon); if (c) m.matches.push(c); });
   m.matches.sort(function(a,b){ return (a.piste-b.piste) || (a.order-b.order); });
   if (res && typeof res==='object') Object.keys(res).forEach(function(k){ var r = lvCleanResult(res[k]); if (r) m.results[sId(k)] = r; });
+  m.meta.checkin = (meta.checkin === 'open' || meta.checkin === 'closed') ? meta.checkin : '';
+  m.checkins = {};
+  var ci = (pub.checkins && typeof pub.checkins==='object') ? pub.checkins : {};
+  Object.keys(ci).slice(0,600).forEach(function(k){ var c = ci[k]; if (c && typeof c==='object' && m.fmap[sId(k)]) m.checkins[sId(k)] = { at:sInt(c.at,0,9e15,0), name:sStr(c.name,60) }; });
   return m;
 }
 function lvStandings(model, team){
@@ -4105,18 +4134,37 @@ function lhNormDraft(d){
 function lhCreateSheet(){
   if (!liveEnabled()){ toast('Fencing Live is not connected to its database yet'); return; }
   var wOpts = '';
-  WEAPONS.forEach(function(w){ wOpts += '<option value="' + w.id + '"' + (w.id==='epee'?' selected':'') + '>' + w.name + '</option>'; });
+  WEAPONS.forEach(function(w){ wOpts += '<option value="' + w.id + '"' + (w.id==='foil'?' selected':'') + '>' + w.name + '</option>'; });
   var today = new Date().toISOString().slice(0,10);
   lvSheet('<div class="sheet-title">Create event</div>' +
     '<label>Event name</label><input id="lcName" maxlength="60" placeholder="e.g. MUFC Club Night">' +
+    '<label style="margin-top:10px;">Event type</label><div class="lv-seg" id="lcType" data-v="teams"><button class="on" onclick="lhPickType(\'teams\')">Teams</button><button onclick="lhPickType(\'individual\')">Individual</button></div>' +
+    '<div id="lcFmtWrap" style="display:none;margin-top:10px;"><label>Format</label><div class="lv-seg" id="lcFmt" data-v="pool"><button class="on" onclick="lhPickFmt(\'pool\')">Pool</button><button onclick="lhPickFmt(\'de\')">DE</button></div>' +
+      '<div id="lcDeWrap" style="display:none;margin-top:10px;"><label>DE format</label><div class="lv-seg" id="lcDe" data-v="senior"><button class="on" onclick="lhPickDe(\'senior\')">Senior \u00b7 15</button><button onclick="lhPickDe(\'vet\')">Veteran \u00b7 10</button></div></div></div>' +
+    '<div class="lv-sub" id="lcTypeNote">Teams: direct elimination like FIE, 45-touch relays (3 fencers + 1 reserve).</div>' +
     '<div style="display:flex;gap:8px;margin-top:10px;"><div style="flex:1;"><label>Date</label><input id="lcDate" type="date" value="' + today + '"></div>' +
     '<div style="flex:1;"><label>Weapon</label><select id="lcWeapon">' + wOpts + '</select></div></div>' +
     '<div id="lcMsg" style="min-height:20px;font-size:14px;margin-top:10px;color:var(--muted);"></div>' +
     '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button>' +
     '<button class="btn btn-gold btn-block" id="lcBtn" onclick="lhCreate()">Create</button></div>');
 }
+function lhSegSet(id, v){ var el = document.getElementById(id); if (!el) return; el.setAttribute('data-v', v); var b = el.querySelectorAll('button'); for (var i=0;i<b.length;i++){ var on = b[i].getAttribute('onclick').indexOf("'" + v + "'") >= 0; b[i].className = on ? 'on' : ''; } }
+function lhSegVal(id){ var el = document.getElementById(id); return el ? el.getAttribute('data-v') : ''; }
+function lhTypeNote(){
+  var t = lhSegVal('lcType'), f = lhSegVal('lcFmt'), de = lhSegVal('lcDe'), n = document.getElementById('lcTypeNote');
+  document.getElementById('lcFmtWrap').style.display = t==='individual' ? 'block' : 'none';
+  document.getElementById('lcDeWrap').style.display = (t==='individual' && f==='de') ? 'block' : 'none';
+  if (n) n.textContent = t==='teams' ? 'Teams: direct elimination like FIE, 45-touch relays (3 fencers + 1 reserve).' :
+    (f==='pool' ? 'Individual pools: round-robin pools of about 6\u20137, bouts to 5 in the FIE order.' :
+     'Individual DE: seeded table, bouts to ' + (de==='vet' ? '10 (veteran)' : '15 (senior)') + '.');
+}
+function lhPickType(v){ lhSegSet('lcType', v); lhTypeNote(); }
+function lhPickFmt(v){ lhSegSet('lcFmt', v); lhTypeNote(); }
+function lhPickDe(v){ lhSegSet('lcDe', v); lhTypeNote(); }
 function lhCreate(){
   var name = sStr(lvVal('lcName'),60), date = sStr(lvVal('lcDate'),20), weapon = lvVal('lcWeapon'), pistes = 10;
+  var etype = lhSegVal('lcType') === 'individual' ? 'individual' : 'teams';
+  var efmt = etype === 'teams' ? 'team' : (lhSegVal('lcFmt') === 'de' ? (lhSegVal('lcDe') === 'vet' ? 'vet' : 'senior') : 'pool');
   var msg = document.getElementById('lcMsg'), btn = document.getElementById('lcBtn');
   if (!name){ msg.textContent = 'Give the event a name.'; msg.style.color = '#f0c000'; return; }
   if (!LIVE_WEAPONS[weapon]) weapon = 'foil';
@@ -4126,7 +4174,7 @@ function lhCreate(){
     tries++;
     var code = lvCode(), hp = lvPin(), rp = lvPin();
     while (rp === hp) rp = lvPin();
-    var N = lvNonce(), d = lhEmptyDraft(name, date, weapon, pistes);
+    var N = lvNonce(), d = lhEmptyDraft(name, date, weapon, pistes); d.meta.type = etype; d.meta.fmt = efmt;
     var pub = JSON.parse(JSON.stringify(d)); pub._n = N;
     var body = {};
     body['secrets/' + code] = { hostPin:hp, refPin:rp, createdAt:{'.sv':'timestamp'} };
@@ -4134,7 +4182,7 @@ function lhCreate(){
     body['events/' + code + '/public'] = pub;
     liveFetch('PATCH', '/', body).then(function(r){
       if (r.ok){
-        LH = { code:code, hostPin:hp, refPin:rp, d:d, dirty:false, pub:{}, results:{}, tab:'fencers', sel:null, stream:null };
+        LH = { code:code, hostPin:hp, refPin:rp, d:d, dirty:false, pub:{}, results:{}, tab:'fencers', sel:null, stream:null, showOrders:true };
         lhSaveLocal(); lvRemember(code, name, 'host');
         lvCloseSheet(); lhOpen(); lhShowPins(true);
         return;
@@ -4223,7 +4271,7 @@ function lhOpen(){
   show('liveHost');
   if (LH.stream) LH.stream.close();
   LH.stream = lvStream('/events/' + LH.code + '/public', function(tree){
-    if (!LH) return; LH.results = (tree && tree.results) || {}; LH.pub = {}; if (tree && tree.matches) Object.keys(tree.matches).forEach(function(k){ LH.pub[k] = 1; }); lhScheduleRender();
+    if (!LH) return; LH.results = (tree && tree.results) || {}; LH.checkins = (tree && tree.checkins) || {}; LH.pub = {}; if (tree && tree.matches) Object.keys(tree.matches).forEach(function(k){ LH.pub[k] = 1; }); lhScheduleRender();
   }, function(st){ if (LH){ LH.net = st; lhRenderBar(); } });
   lhRender();
 }
@@ -4291,6 +4339,8 @@ function lhRender(){
   document.getElementById('lhCode').textContent = LH.code;
   lhRenderBar();
   var tabs = [['fencers','Fencers'],['teams','Teams'],['bouts','Schedule'],['results','Results'],['share','Share']];
+  if (LH.d.meta.type === 'individual') tabs = tabs.filter(function(t){ return t[0] !== 'teams'; });
+  if (LH.d.meta.type === 'individual' && LH.tab === 'teams') LH.tab = 'fencers';
   document.getElementById('lhTabs').innerHTML = tabs.map(function(t){ return '<button class="lv-tab' + (LH.tab===t[0]?' on':'') + '" onclick="lhSetTab(\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('');
   var body = document.getElementById('lhBody');
   try {
@@ -4309,13 +4359,22 @@ function lhFencersHtml(){
   var d = LH.d, ids = Object.keys(d.fencers).sort(function(a,b){ return d.fencers[a].name.localeCompare(d.fencers[b].name); });
   var html = '<div class="live-actions" style="margin:0 0 10px;"><button class="btn btn-gold" onclick="lhFencerSheet()">+ Add fencer</button><button class="btn btn-ghost" onclick="lhPasteSheet()">Paste a list</button></div>';
   if (!ids.length) return html + '<div class="lv-empty">No fencers yet. Add them one by one, or paste a list.</div>';
-  html += '<div class="lv-sub">' + ids.length + ' fencer' + (ids.length>1?'s':'') + '. Skill (1–5) is used to balance teams.</div>';
+  var ci = LH.checkins || {}, st = d.meta.checkin || '';
+  var present = ids.filter(function(id){ return !d.fencers[id].absent; }), here = present.filter(function(id){ return ci[id]; });
+  if (st){
+    var flt = LH.ciFilter || 'all';
+    html += '<div class="lv-ci' + (st==='open' ? '' : ' closed') + '" style="display:block;"><b>📍 Check-in ' + (st==='open' ? 'open' : 'closed') + ': ' + here.length + ' of ' + present.length + ' here</b>' +
+      (st==='closed' && present.length > here.length ? '<br><span>' + (present.length - here.length) + ' did not check in.</span> <button class="btn btn-gold btn-sm" style="margin-top:6px;" onclick="lhNoShowsSheet()">Remove no-shows…</button>' : '') + '</div>' +
+      '<div class="lv-seg" style="margin-bottom:8px;">' + [['all','All'],['here','Here'],['missing','Not yet'],['absent','Absent']].map(function(t){ return '<button class="' + (flt===t[0]?'on':'') + '" onclick="LH.ciFilter=\'' + t[0] + '\';lhRender()">' + t[1] + '</button>'; }).join('') + '</div>';
+    ids = ids.filter(function(id){ var f = d.fencers[id]; if (flt==='here') return !!ci[id]; if (flt==='missing') return !ci[id] && !f.absent; if (flt==='absent') return !!f.absent; return true; });
+  } else html += '<div class="lv-sub">' + ids.length + ' fencer' + (ids.length>1?'s':'') + '. Skill (1–5) is used to balance teams.</div>';
   ids.forEach(function(id){
-    var f = d.fencers[id];
-    html += '<div class="live-row" onclick="lhFencerSheet(\'' + id + '\')"><div class="lr-main"><div class="lr-names">' + esc(f.name) + '</div>' +
-      '<div class="lr-meta">' + esc([f.country, f.club].filter(Boolean).join(' · ') || '—') + '</div></div>' +
-      '<span class="lv-stars">' + lhStars(f.skill||3) + '</span></div>';
+    var f = d.fencers[id], c = ci[id];
+    var tag = f.absent ? '<span class="lr-chip off">absent</span>' : (st ? (c ? '<span class="lr-chip ok">✓ ' + new Date(c.at||0).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}) + '</span>' : '<span class="lr-chip">not yet</span>') : '<span class="lv-stars">' + lhStars(f.skill||3) + '</span>');
+    html += '<div class="live-row' + (f.absent ? ' off' : '') + '" onclick="lhFencerSheet(\'' + id + '\')"><div class="lr-main"><div class="lr-names">' + esc(f.name) + '</div>' +
+      '<div class="lr-meta">' + esc([f.country, f.club, st ? 'skill ' + (f.skill||3) : ''].filter(Boolean).join(' · ') || '—') + '</div></div>' + tag + '</div>';
   });
+  if (!ids.length) html += '<div class="lv-empty" style="padding:16px;">Nobody in this list.</div>';
   return html;
 }
 function lhSkillPicker(v){
@@ -4334,16 +4393,60 @@ function lhFencerSheet(id){
     '<label style="margin-top:10px;">Skill level</label>' + lhSkillPicker(f.skill||3) +
     '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button>' +
     '<button class="btn btn-gold btn-block" onclick="lhSaveFencer(' + (id ? '\'' + id + '\'' : 'null') + ',' + (id ? 'false' : 'true') + ')">Save</button></div>' +
+    (id && LH.d.meta.checkin ? '<div class="sheet-row">' + ((LH.checkins||{})[id] ? '<button class="btn btn-ghost btn-block" onclick="lhCheckinSet(\'' + id + '\', false)">Undo check-in</button>' : '<button class="btn btn-ghost btn-block" onclick="lhCheckinSet(\'' + id + '\', true)">✅ Check in for them</button>') + '</div>' : '') +
+    (id ? '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lhSetAbsent(\'' + id + '\',' + (f.absent ? 'false' : 'true') + ')">' + (f.absent ? 'Mark as here (not absent)' : 'Mark absent — take out of teams and draws') + '</button></div>' : '') +
     (id ? '<div class="sheet-row"><button class="btn btn-ghost btn-block" style="color:var(--red2);border-color:rgba(231,76,60,.4);" onclick="lhDeleteFencer(\'' + id + '\')">Remove fencer</button></div>' :
           '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lhSaveFencer(null,false,true)">Save and add another</button></div>'));
   setVal('lfCountry', f.country || '');
   setTimeout(function(){ var n = document.getElementById('lfName'); if (n && !id) try { n.focus(); } catch(e){} }, 50);
+}
+function lhCheckinSet(fid, on){
+  var f = LH.d.fencers[fid]; if (!f) return;
+  if (!LH.pub || (Object.keys(LH.pub).length === 0 && LH.dirty && !(LH.checkins||{})[fid])){ /* fencers must be on Live */ }
+  var N = lvNonce(), body = { 'public/_n':N };
+  body['public/checkins/' + fid] = on ? { at:Date.now(), name:f.name, by:'host' } : null;
+  body['hostAuth/' + N] = { pin:LH.hostPin, at:{'.sv':'timestamp'} };
+  lvCloseSheet();
+  liveFetch('PATCH', '/events/' + LH.code, body).then(function(r){
+    if (r.ok) toast(on ? '✅ ' + f.name + ' checked in' : 'Check-in undone for ' + f.name);
+    else toast('Not changed (' + liveReason(r) + ') — publish the fencer list first');
+  });
+}
+function lhSetAbsent(fid, on){
+  var f = LH.d.fencers[fid]; if (!f) return;
+  f.absent = on || null;
+  if (on) Object.keys(LH.d.teams).forEach(function(k){ LH.d.teams[k].members = LH.d.teams[k].members.filter(function(m){ return m !== fid; }); });
+  lvCloseSheet(); lhDirty();
+  toast(on ? f.name + ' marked absent and taken out of their team' : f.name + ' is back in — add them to a team');
+}
+function lhNoShowsSheet(){
+  var d = LH.d, ci = LH.checkins || {};
+  var miss = Object.keys(d.fencers).filter(function(id){ return !d.fencers[id].absent && !ci[id]; });
+  if (!miss.length){ toast('Everyone checked in'); return; }
+  var teamsHit = {};
+  miss.forEach(function(id){ var t = lhTeamOf(id); if (t) teamsHit[t] = (teamsHit[t]||0) + 1; });
+  lvSheet('<div class="sheet-title">Remove ' + miss.length + ' no-show' + (miss.length>1?'s':'') + '?</div>' +
+    '<div class="lv-sub" style="margin-top:0;">' + esc(miss.map(function(id){ return d.fencers[id].name; }).join(', ')) + '</div>' +
+    '<div class="lv-sub">They are marked <b>absent</b> and taken out of their teams (' + Object.keys(teamsHit).length + ' team' + (Object.keys(teamsHit).length!==1?'s':'') + ' affected). Nothing is deleted — you can mark anyone as here again.</div>' +
+    '<div class="lv-sub"><b>Next:</b> adjust teams (Teams tab), then in Schedule reset and regenerate the draw if it changed, then tap <b>Publish</b> so everyone sees the new version.</div>' +
+    '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button><button class="btn btn-gold btn-block" onclick="lhRemoveNoShows()">Remove no-shows</button></div>');
+}
+function lhRemoveNoShows(){
+  var d = LH.d, ci = LH.checkins || {}, n = 0;
+  Object.keys(d.fencers).forEach(function(id){
+    if (d.fencers[id].absent || ci[id]) return;
+    d.fencers[id].absent = true; n++;
+    Object.keys(d.teams).forEach(function(k){ d.teams[k].members = d.teams[k].members.filter(function(m){ return m !== id; }); });
+  });
+  lvCloseSheet(); LH.ciFilter = 'all'; lhDirty();
+  toast(n + ' marked absent — now adjust teams, regenerate if needed, then Publish');
 }
 function lhSaveFencer(id, close, again){
   var name = sStr(lvVal('lfName'),40);
   if (!name){ toast('Enter a name'); return; }
   var sk = document.getElementById('lfSkill');
   var f = { name:name, club:sStr(lvVal('lfClub'),40), country:sCountry(lvVal('lfCountry')), skill:sInt(sk ? sk.getAttribute('data-v') : 3,1,5,3) };
+  if (id && LH.d.fencers[id] && LH.d.fencers[id].absent) f.absent = true;
   LH.d.fencers[id || lvId('f')] = f;
   lhDirty();
   if (again){ lhFencerSheet(); toast('Added ' + name); } else lvCloseSheet();
@@ -4422,12 +4525,13 @@ function lhPasteSave(){
 /* ---------- teams ---------- */
 function lhTeamOf(fid){ var t = null; Object.keys(LH.d.teams).forEach(function(k){ if (LH.d.teams[k].members.indexOf(fid) >= 0) t = k; }); return t; }
 function lhTeamIds(){ return Object.keys(LH.d.teams).sort(function(a,b){ return (LH.d.teams[a].order||0) - (LH.d.teams[b].order||0); }); }
-function lhChip(fid){
+function lhChip(fid, pos){
   var f = LH.d.fencers[fid]; if (!f) return '';
-  return '<button class="lv-chip' + (LH.sel===fid ? ' sel' : '') + '" onclick="lhTapFencer(\'' + fid + '\')">' + esc(f.name) + ' <small>' + (f.skill||3) + '</small></button>';
+  var tag = (typeof pos === 'number') ? '<b class="lv-pos">' + (pos < 3 ? pos + 1 : 'R') + '</b>' : '';
+  return '<button class="lv-chip' + (LH.sel===fid ? ' sel' : '') + '" onclick="lhTapFencer(\'' + fid + '\')">' + tag + esc(f.name) + ' <small>' + (f.skill||3) + '</small></button>';
 }
 function lhTeamsHtml(){
-  var d = LH.d, fids = Object.keys(d.fencers), tids = lhTeamIds();
+  var d = LH.d, allF = Object.keys(d.fencers), fids = allF.filter(function(id){ return !d.fencers[id].absent; }), tids = lhTeamIds();
   var nFencers = fids.length;
   var html = '<div class="lv-card"><div class="lv-sub" style="margin-top:0;">Build balanced teams from skill levels. Everyone gets a team. You can move anyone afterwards.</div>' +
     (nFencers < 2 ? '<div class="live-banner" style="margin:0;">Add fencers first (Fencers tab), then build teams here.</div></div>' :
@@ -4445,15 +4549,18 @@ function lhTeamsHtml(){
     t.members.forEach(function(id){ sum += (d.fencers[id] && d.fencers[id].skill) || 0; });
     html += '<div class="lv-card"><div class="lv-team-head"><button class="lv-team-name" onclick="lhRenameTeam(\'' + tid + '\')">' + esc(t.name) + ' ✎</button>' +
       '<span class="lr-chip">' + t.members.length + ' · skill ' + sum + '</span></div>' +
-      '<div class="lv-chips">' + (t.members.map(lhChip).join('') || '<span class="lv-sub">Empty</span>') + '</div>' +
+      (t.members.length >= 2 ? '<div class="lv-sub" style="margin:-4px 0 6px;font-size:11px;">1, 2, 3 fence the relay · R = reserve · tap two teammates to swap their order</div>' : '') +
+      '<div class="lv-chips">' + (t.members.map(function(f, i){ return lhChip(f, i); }).join('') || '<span class="lv-sub">Empty</span>') + '</div>' +
       (t.members.length > 4 ? '<div class="lv-sub" style="color:#f0c000;">Only the first 4 go to the scoreboard (3 fence + 1 substitute).</div>' : '') +
       ((LH.sel && t.members.indexOf(LH.sel) < 0) ? '<button class="btn btn-ghost btn-block" style="margin-top:8px;" onclick="lhMoveTo(\'' + tid + '\')">Move here</button>' : '') +
     '</div>';
   });
   var un = fids.filter(function(id){ return !lhTeamOf(id); }).sort(function(a,b){ return d.fencers[a].name.localeCompare(d.fencers[b].name); });
+  var nAbs = allF.length - fids.length;
+  if (nAbs) html += '<div class="lv-sub">' + nAbs + ' absent fencer' + (nAbs>1?'s are':' is') + ' left out (Fencers tab \u2192 Absent).</div>';
   if (un.length || (LH.sel && lhTeamOf(LH.sel))){
     html += '<div class="lv-card"><div class="lv-team-head"><span class="lv-team-name">Not in a team</span><span class="lr-chip">' + un.length + '</span></div>' +
-      '<div class="lv-chips">' + un.map(lhChip).join('') + '</div>' +
+      '<div class="lv-chips">' + un.map(function(f){ return lhChip(f); }).join('') + '</div>' +
       ((LH.sel && lhTeamOf(LH.sel)) ? '<button class="btn btn-ghost btn-block" style="margin-top:8px;" onclick="lhMoveTo(null)">Move here</button>' : '') + '</div>';
   }
   html += '<div class="live-actions"><button class="btn btn-ghost" onclick="lhAddTeam()">+ Add team</button>' +
@@ -4479,7 +4586,7 @@ function lhManualTeams(){
   else make();
 }
 function lhAutoTeams(){
-  var d = LH.d, fids = Object.keys(d.fencers), size = (LH.teamSize === 4) ? 4 : 3;
+  var d = LH.d, fids = Object.keys(d.fencers).filter(function(id){ return !d.fencers[id].absent; }), size = (LH.teamSize === 4) ? 4 : 3;
   if (fids.length < 2){ toast('Add fencers first'); return; }
   if (fids.length < size){ toast('Not enough fencers for a team of ' + size); return; }
   var n = Math.min(100, lhTeamCount(fids.length, size));
@@ -4506,6 +4613,7 @@ function lhTapFencer(fid){
   if (!LH.sel){ LH.sel = fid; lhRender(); return; }
   if (LH.sel === fid){ LH.sel = null; lhRender(); return; }
   var a = LH.sel, b = fid, ta = lhTeamOf(a), tb = lhTeamOf(b), T = LH.d.teams;
+  if (ta && ta === tb){ var mm = T[ta].members, ia = mm.indexOf(a), ib = mm.indexOf(b); mm[ia] = b; mm[ib] = a; LH.sel = null; lhDirty(); toast('Order changed \u2014 1, 2, 3 fence, R is the reserve'); return; }
   if (ta === tb){ LH.sel = fid; lhRender(); return; }
   if (ta) T[ta].members[T[ta].members.indexOf(a)] = b;
   if (tb) T[tb].members[T[tb].members.indexOf(b)] = a;
@@ -4539,8 +4647,16 @@ function lhDeleteTeam(tid){
 /* ---------- bouts (manual list) ---------- */
 function lhBoutsHtml(){
   var m = lhModel();
-  var html = '<div class="live-actions" style="margin:0 0 6px;"><button class="btn btn-gold" onclick="lhBoutSheet(null,\'team\')">+ Team match</button><button class="btn btn-gold" onclick="lhBoutSheet(null,\'ind\')">+ Individual bout</button></div>' +
-    '<div class="live-actions" style="margin:0 0 10px;"><button class="btn btn-ghost" onclick="lhGenSheet()">\u26A1 Generate schedule</button></div>';
+  var et = LH.d.meta.type, ef = LH.d.meta.fmt;
+  var add = et === 'teams' ? '<button class="btn btn-ghost" onclick="lhBoutSheet(null,\'team\')">+ Add match by hand</button>' :
+            (et === 'individual' ? '<button class="btn btn-ghost" onclick="lhBoutSheet(null,\'ind\')">+ Add bout by hand</button>' :
+             '<button class="btn btn-gold" onclick="lhBoutSheet(null,\'team\')">+ Team match</button><button class="btn btn-gold" onclick="lhBoutSheet(null,\'ind\')">+ Individual bout</button>');
+  var auto = '';
+  if (et === 'teams' || (et === 'individual' && ef !== 'pool')) auto = '<button class="btn btn-gold btn-block" style="margin-bottom:6px;" onclick="lhAutoRoundSheet()">\u26A1 ' + esc(lhAutoRoundLabel()) + '</button>';
+  else if (et === 'individual') auto = '<button class="btn btn-gold btn-block" style="margin-bottom:6px;" onclick="lhPoolsSheet()">\u26A1 Generate pools</button>';
+  var html = auto + '<div class="live-actions" style="margin:0 0 6px;">' + add + '<button class="btn btn-ghost" onclick="lhGenSheet()">\u21C6 Spread over pistes</button></div>' +
+    ((LH.d.bracket || m.matches.some(function(x){ return /^Pool /.test(x.round||''); })) ? '<div style="text-align:right;margin:-2px 0 6px;"><button class="link" style="color:var(--muted);font-size:13px;" onclick="lhResetDraw()">\u21BA Reset generated draw</button></div>' : '') +
+    (m.matches.some(function(x){ return x.fmt==='team'; }) ? '<label class="lv-check"><input type="checkbox" ' + (LH.showOrders!==false ? 'checked' : '') + ' onchange="LH.showOrders=this.checked;lhRender()"> Show the 9-bout order under each match</label>' : '');
   if (!m.matches.length) return html + '<div class="lv-empty">Nothing scheduled yet. Add the matches for round 1 (you can add round 2 any time, even after publishing), then tap <b>Generate schedule</b> to spread them across pistes.</div>';
   lvPistesUsed(m.matches).forEach(function(p){
     var list = lvOnPiste(m, p);
@@ -4548,6 +4664,7 @@ function lhBoutsHtml(){
     list.forEach(function(x, i){
       html += '<div class="lh-bout">' + lvMatchRow(m, x, null, ' onclick="lhBoutSheet(\'' + x.id + '\')"') +
         '<div class="lh-move"><button ' + (i===0?'disabled':'') + ' onclick="lhMoveBout(\'' + x.id + '\',-1)">▲</button><button ' + (i===list.length-1?'disabled':'') + ' onclick="lhMoveBout(\'' + x.id + '\',1)">▼</button></div></div>';
+      if (x.fmt === 'team') html += lvRelayDetails(m, x, LH.showOrders !== false);
     });
   });
   return html;
@@ -4579,7 +4696,8 @@ function lhBoutSheet(id, kindOverride){
   } else {
     var fOpts = '<option value="">Choose fencer</option>' + Object.keys(d.fencers).sort(function(a,b){ return d.fencers[a].name.localeCompare(d.fencers[b].name); })
       .map(function(f){ return '<option value="' + f + '">' + esc(d.fencers[f].name) + '</option>'; }).join('');
-    html += '<label>Format</label><select id="lbFmt"><option value="pool">Pool · 5 touches</option><option value="vet">Veteran DE · 10</option><option value="senior">Senior DE · 15</option></select>' +
+    html += (LH.d.meta.type === 'individual' ? '<input type="hidden" id="lbFmt" value="' + (LH.d.meta.fmt||'pool') + '">' :
+      '<label>Format</label><select id="lbFmt"><option value="pool">Pool · 5 touches</option><option value="vet">Veteran DE · 10</option><option value="senior">Senior DE · 15</option></select>') +
       '<label style="margin-top:10px;">Fencer A</label><select id="lbA">' + fOpts + '</select><input id="lbAn" maxlength="40" placeholder="or type a name" style="margin-top:6px;">' +
       '<label style="margin-top:10px;">Fencer B</label><select id="lbB">' + fOpts + '</select><input id="lbBn" maxlength="40" placeholder="or type a name" style="margin-top:6px;">';
   }
@@ -4676,6 +4794,208 @@ function lhSaveBout(id, kind, again){
   if (again){ lhBoutSheet(null, kind); toast('Saved \u2014 add the next one'); } else lvCloseSheet();
 }
 
+/* ---------- automatic draws: DE tableau rounds (teams / individual DE) and pools ---------- */
+function lhDEKind(){ var t = LH.d.meta.type; return t === 'teams' ? 'team' : (t === 'individual' && LH.d.meta.fmt !== 'pool' ? 'ind' : null); }
+function lhSeedOrder(S){ var o = [1]; while (o.length < S){ var n = o.length * 2, nx = []; o.forEach(function(s){ nx.push(s, n + 1 - s); }); o = nx; } return o; }
+function lhTableName(S){ return S===2 ? 'Final' : (S===4 ? 'Semi-finals' : (S===8 ? 'Quarter-finals' : 'Table of ' + S)); }
+function lhSeeds(kind){
+  var d = LH.d;
+  if (kind === 'team'){
+    return lhTeamIds().map(function(t){ var sum = 0; d.teams[t].members.slice(0,3).forEach(function(f){ sum += (d.fencers[f] && d.fencers[f].skill) || 0; }); return { id:t, s:sum, n:d.teams[t].name }; })
+      .sort(function(a,b){ return (b.s - a.s) || a.n.localeCompare(b.n); }).map(function(x){ return x.id; });
+  }
+  return Object.keys(d.fencers).filter(function(f){ return !d.fencers[f].absent; }).map(function(f){ return { id:f, s:d.fencers[f].skill||3, n:d.fencers[f].name }; })
+    .sort(function(a,b){ return (b.s - a.s) || a.n.localeCompare(b.n); }).map(function(x){ return x.id; });
+}
+function lhName(kind, ref){ var d = LH.d; return kind === 'team' ? ((d.teams[ref]||{}).name || 'TBC') : ((d.fencers[ref]||{}).name || 'TBC'); }
+function lhBracket(){ var b = LH.d.bracket; if (!b || typeof b !== 'object' || !b.rounds) return null; if (!Array.isArray(b.rounds)) b.rounds = Object.keys(b.rounds).sort(function(x,y){ return x-y; }).map(function(k){ return b.rounds[k]; }); b.rounds.forEach(function(r){ if (r && r.entries && !Array.isArray(r.entries)) r.entries = Object.keys(r.entries).sort(function(x,y){ return x-y; }).map(function(k){ return r.entries[k]; }); }); return b; }
+function lhWinner(kind, e){
+  if (!e) return null;
+  if (e.a && !e.b) return e.a;
+  if (!e.a && e.b) return e.b;
+  var x = e.mid && LH.d.matches[e.mid]; if (!x) return null;
+  var r = lvCleanResult((LH.results || {})[e.mid]); if (!r || !r.final) return null;
+  if (r.scoreA > r.scoreB) return x.aRef || null;
+  if (r.scoreB > r.scoreA) return x.bRef || null;
+  return null;
+}
+/* What the next press of the button will do. */
+function lhNextRoundPlan(){
+  var kind = lhDEKind(); if (!kind) return null;
+  var b = lhBracket();
+  if (!b || !b.rounds.length){
+    var seeds = lhSeeds(kind), N = seeds.length;
+    if (N < 2) return { error: kind === 'team' ? 'Build at least 2 teams first (Teams tab).' : 'Add at least 2 fencers first.' };
+    var S = 2; while (S < N) S *= 2;
+    var order = lhSeedOrder(S), entries = [];
+    for (var i=0;i<S/2;i++){
+      var a = seeds[order[2*i]-1] || null, c = seeds[order[2*i+1]-1] || null;
+      if (!a && c){ a = c; c = null; }
+      entries.push({ a:a, b:c, mid:null });
+    }
+    return { round:1, size:S, entries:entries, isNew:true };
+  }
+  var last = b.rounds[b.rounds.length-1], prev = last.entries;
+  // refresh the latest round's open slots from the round before (winners decided since)
+  if (b.rounds.length >= 2){
+    var before = b.rounds[b.rounds.length-2].entries;
+    prev.forEach(function(e, j){ if (!e.mid){ e.a = lhWinner(kind, before[2*j]); e.b = lhWinner(kind, before[2*j+1]); } });
+  }
+  // first finish creating matches in the latest round (if some were waiting)
+  var waitingNow = prev.filter(function(e){ return e.a && e.b && !e.mid; }).length;
+  if (prev.length === 1 && !waitingNow) return { done:true };
+  if (waitingNow) return { round:b.rounds.length, size:last.size, entries:prev, isNew:false };
+  var next = [];
+  for (var j=0;j<prev.length/2;j++) next.push({ a:lhWinner(kind, prev[2*j]), b:lhWinner(kind, prev[2*j+1]), mid:null });
+  return { round:b.rounds.length + 1, size:last.size / 2, entries:next, isNew:true };
+}
+function lhResetDraw(){
+  var d = LH.d, keep = 0, del = [];
+  Object.keys(d.matches).forEach(function(id){
+    var x = d.matches[id], r = lvCleanResult((LH.results||{})[id]);
+    var generated = /^Round \d+ · /.test(x.round||'') || /^Pool \d+$/.test(x.round||'');
+    if (!generated) return;
+    if (r && (r.hasScore || r.closed)) keep++; else del.push(id);
+  });
+  askConfirm('Reset the generated draw? ' + del.length + ' match' + (del.length!==1?'es':'') + ' without results will be removed' + (keep ? ' (' + keep + ' with results are kept)' : '') + '. You can then generate it again with the current teams.', function(){
+    del.forEach(function(id){ var p = d.matches[id].piste||0; delete d.matches[id]; lhRenumber(p); });
+    if (!keep) delete d.bracket;
+    lhDirty(); toast('Draw reset — generate again, then Publish');
+  });
+}
+function lhAutoRoundLabel(){
+  var p = null; try { p = lhNextRoundPlan(); } catch(e){}
+  if (!p || p.error) return 'Auto-generate Round 1';
+  if (p.done) return 'Tableau complete \u2014 Final created';
+  return 'Auto-generate Round ' + p.round + ' \u00b7 ' + lhTableName(p.size);
+}
+function lhAutoRoundSheet(){
+  var kind = lhDEKind(), p = lhNextRoundPlan();
+  if (!p) return;
+  if (p.error){ toast(p.error); return; }
+  if (p.done){ toast('The final is already in the schedule'); return; }
+  var ready = p.entries.filter(function(e){ return e.a && e.b && !e.mid; });
+  var byes = p.entries.filter(function(e){ return (e.a && !e.b) || (!e.a && e.b); });
+  var waiting = p.entries.filter(function(e){ return !e.a || !e.b; }).length - (p.round === 1 ? byes.length : 0);
+  var label = 'Round ' + p.round + ' \u00b7 ' + lhTableName(p.size);
+  var list = ready.map(function(e){ return '<div class="lv-pair">' + esc(lhName(kind, e.a)) + ' <span>v</span> ' + esc(lhName(kind, e.b)) + '</div>'; }).join('');
+  if (p.round === 1) list += byes.map(function(e){ return '<div class="lv-pair bye">' + esc(lhName(kind, e.a || e.b)) + ' <span>bye to Round 2</span></div>'; }).join('');
+  lvSheet('<div class="sheet-title">\u26A1 ' + esc(label) + '</div>' +
+    '<div class="lv-sub" style="margin-top:0;">' + (p.round === 1 ? 'Seeded by ' + (kind==='team' ? 'team skill (fencers 1\u20133)' : 'skill') + ', FIE tableau order. Top seeds get the byes.' : 'Winners of Round ' + (p.round-1) + ' meet in tableau order.') +
+      (waiting > 0 ? ' <b>' + waiting + ' match' + (waiting>1?'es':'') + ' still waiting for results</b> \u2014 press again later to add ' + (waiting>1?'them':'it') + '.' : '') + '</div>' +
+    (ready.length || byes.length ? '<div class="lv-pairs">' + list + '</div>' : '<div class="lv-empty" style="padding:14px;">No matches ready yet \u2014 results from the previous round are needed.</div>') +
+    '<div style="display:flex;gap:8px;margin-top:10px;"><div style="flex:1;"><label>From piste</label><input id="arFrom" type="number" inputmode="numeric" min="1" max="99" value="1"></div>' +
+    '<div style="flex:1;"><label>To piste</label><input id="arTo" type="number" inputmode="numeric" min="1" max="99" value="' + Math.max(1, Math.min(4, ready.length || 1)) + '"></div></div>' +
+    '<div class="lv-sub">You can edit, move or delete any generated match afterwards.</div>' +
+    '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button><button class="btn btn-gold btn-block" ' + (ready.length || (p.isNew && byes.length) ? '' : 'disabled') + ' onclick="lhAutoRound()">Create ' + ready.length + ' match' + (ready.length!==1?'es':'') + '</button></div>');
+}
+function lhAutoRound(){
+  var kind = lhDEKind(), p = lhNextRoundPlan(); if (!p || p.error || p.done) return;
+  var d = LH.d, from = sInt(lvVal('arFrom'),1,99,1), to = sInt(lvVal('arTo'),1,99,from);
+  if (to < from){ var t = from; from = to; to = t; }
+  if (!d.bracket || !lhBracket()) d.bracket = { kind:kind, rounds:[] };
+  var b = lhBracket(), label = 'Round ' + p.round + ' \u00b7 ' + lhTableName(p.size);
+  var round = p.isNew ? { name:label, size:p.size, entries:p.entries } : b.rounds[p.round-1];
+  if (p.isNew) b.rounds.push(round);
+  var ids = [];
+  round.entries.forEach(function(e){
+    if (!(e.a && e.b) || e.mid) return;
+    var id = lvId('m'), rec;
+    if (kind === 'team') rec = { fmt:'team', aRef:e.a, bRef:e.b, teamA:lhName(kind, e.a), teamB:lhName(kind, e.b) };
+    else rec = { fmt:d.meta.fmt || 'senior', aRef:e.a, bRef:e.b, teamA:lhName(kind, e.a), teamB:lhName(kind, e.b) };
+    rec.round = label; rec.weapon = d.meta.weapon; rec.piste = 0; rec.order = 0; rec.time = null;
+    d.matches[id] = rec; e.mid = id; ids.push(id);
+  });
+  var pistes = []; for (var q=from;q<=to;q++) pistes.push(q);
+  lhSpread(ids, pistes);
+  LH.lastRound = label;
+  lvCloseSheet(); lhDirty();
+  toast(ids.length + ' match' + (ids.length!==1?'es':'') + ' created for ' + label + ' \u2014 tap Publish');
+}
+/* Put matches on pistes in waves so they run at the same time; avoid back-to-back fencing. */
+function lhSpread(ids, pistes){
+  var d = LH.d; if (!ids.length || !pistes.length) return 0;
+  function who(x){ return x.fmt==='team' ? ['t:' + (x.aRef || x.teamA), 't:' + (x.bRef || x.teamB)] : ['f:' + (x.aRef || x.teamA), 'f:' + (x.bRef || x.teamB)]; }
+  var left = ids.slice(), waves = [], prev = {};
+  while (left.length){
+    var wave = [], busy = {};
+    for (var pass=0; pass<2 && wave.length < pistes.length; pass++){
+      for (var i=0; i<left.length && wave.length < pistes.length; i++){
+        var w = who(d.matches[left[i]]);
+        if (busy[w[0]] || busy[w[1]]) continue;
+        if (pass === 0 && (prev[w[0]] || prev[w[1]])) continue;
+        wave.push(left[i]); busy[w[0]] = busy[w[1]] = 1;
+      }
+      left = left.filter(function(k){ return wave.indexOf(k) < 0; });
+    }
+    if (!wave.length) wave.push(left.shift());
+    waves.push(wave); prev = {}; wave.forEach(function(k){ var w2 = who(d.matches[k]); prev[w2[0]] = prev[w2[1]] = 1; });
+  }
+  var base = {};
+  pistes.forEach(function(p){ base[p] = 0; Object.keys(d.matches).forEach(function(k){ if (ids.indexOf(k) < 0 && (d.matches[k].piste||0) === p) base[p] = Math.max(base[p], d.matches[k].order||0); }); });
+  waves.forEach(function(wave, wi){ wave.forEach(function(k, si){ d.matches[k].piste = pistes[si]; d.matches[k].order = base[pistes[si]] + wi + 1; }); });
+  pistes.forEach(function(p){ lhRenumber(p); });
+  return waves.length;
+}
+
+/* Pools: FIE bout order for 4-7, a rest-friendly order otherwise. */
+var FIE_POOL_ORDER = {
+  4:'1-4 2-3 1-3 2-4 3-4 1-2',
+  5:'1-2 3-4 5-1 2-3 5-4 1-3 2-5 4-1 3-5 4-2',
+  6:'1-2 4-5 2-3 5-6 3-1 6-4 2-5 1-4 5-3 1-6 4-2 3-6 5-1 3-4 6-2',
+  7:'1-4 2-5 3-6 7-1 5-4 2-3 6-7 5-1 4-3 6-2 5-7 3-1 4-6 7-2 3-5 1-6 2-4 7-3 6-5 1-2 4-7'
+};
+function lhPoolOrder(n){
+  if (FIE_POOL_ORDER[n]) return FIE_POOL_ORDER[n].split(' ').map(function(p){ return p.split('-').map(Number); });
+  var pairs = []; for (var i=1;i<=n;i++) for (var j=i+1;j<=n;j++) pairs.push([i,j]);
+  var out = [], last = [];
+  while (pairs.length){
+    var k = 0, best = -1;
+    for (var q=0;q<pairs.length;q++){ var sc = (last.indexOf(pairs[q][0])<0 ? 1 : 0) + (last.indexOf(pairs[q][1])<0 ? 1 : 0); if (sc > best){ best = sc; k = q; } }
+    out.push(pairs[k]); last = pairs[k]; pairs.splice(k,1);
+  }
+  return out;
+}
+function lhPoolCount(n){ var k = Math.max(1, Math.ceil(n / 7)); while (k > 1 && n / k < 5) k--; return k; }
+function lhPoolsSheet(){
+  var n = Object.keys(LH.d.fencers).filter(function(id){ return !LH.d.fencers[id].absent; }).length;
+  if (n < 3){ toast('Add at least 3 fencers first'); return; }
+  var k = lhPoolCount(n), sizes = [];
+  for (var i=0;i<k;i++) sizes.push(Math.floor(n/k) + (i < n % k ? 1 : 0));
+  var hasPools = Object.keys(LH.d.matches).some(function(id){ return /^Pool /.test(LH.d.matches[id].round||''); });
+  lvSheet('<div class="sheet-title">\u26A1 Generate pools</div>' +
+    '<div class="lv-sub" style="margin-top:0;">' + n + ' fencers \u2192 <b>' + k + ' pool' + (k>1?'s':'') + '</b> (' + sizes.join(', ') + ' fencers), spread by skill so pools are even. Bouts to 5 in the FIE pool order, one pool per piste.</div>' +
+    '<label>Number of pools</label><input id="plK" type="number" inputmode="numeric" min="1" max="' + Math.floor(n/3) + '" value="' + k + '">' +
+    '<label style="margin-top:10px;">First piste</label><input id="plFrom" type="number" inputmode="numeric" min="1" max="99" value="1">' +
+    (hasPools ? '<div class="live-banner" style="margin-top:10px;">Pools already exist. Pool bouts without results will be replaced.</div>' : '') +
+    '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button><button class="btn btn-gold btn-block" onclick="lhMakePools()">Generate</button></div>');
+}
+function lhMakePools(){
+  var d = LH.d, fids = Object.keys(d.fencers).filter(function(id){ return !d.fencers[id].absent; }), n = fids.length;
+  var k = sInt(lvVal('plK'),1,Math.max(1,Math.floor(n/3)),lhPoolCount(n)), from = sInt(lvVal('plFrom'),1,99,1);
+  // remove old pool bouts that have no result
+  Object.keys(d.matches).forEach(function(id){
+    var r = lvCleanResult((LH.results||{})[id]);
+    if (/^Pool /.test(d.matches[id].round||'') && !(r && (r.hasScore || r.closed))) delete d.matches[id];
+  });
+  var list = fids.map(function(f){ return { id:f, s:(d.fencers[f].skill||3) + Math.random()*0.5 }; }).sort(function(a,b){ return b.s - a.s; });
+  var pools = []; for (var i=0;i<k;i++) pools.push([]);
+  list.forEach(function(x, idx){ var r = Math.floor(idx / k), pos = idx % k; pools[(r % 2 === 0) ? pos : (k - 1 - pos)].push(x.id); });
+  var made = 0;
+  pools.forEach(function(pool, pi){
+    var piste = from + pi, name = 'Pool ' + (pi + 1);
+    lhPoolOrder(pool.length).forEach(function(pair, bi){
+      var a = pool[pair[0]-1], b = pool[pair[1]-1];
+      d.matches[lvId('m')] = { fmt:'pool', aRef:a, bRef:b, teamA:d.fencers[a].name, teamB:d.fencers[b].name, round:name, weapon:d.meta.weapon, piste:piste, order:bi+1, time:null };
+      made++;
+    });
+    lhRenumber(piste);
+  });
+  LH.lastRound = 'Pool 1';
+  lvCloseSheet(); lhDirty();
+  toast(k + ' pool' + (k>1?'s':'') + ', ' + made + ' bouts created on Pistes ' + from + (k>1 ? '\u2013' + (from+k-1) : '') + ' \u2014 tap Publish');
+}
+
 /* ---------- generate schedule: spread a round's matches across pistes ---------- */
 function lhGenSheet(){
   var rounds = lhRounds();
@@ -4736,7 +5056,9 @@ function lhDeleteBout(id){
   lvCloseSheet();
   askConfirm('Delete this bout? Any result uploaded for it will no longer show.', function(){
     var p = LH.d.matches[id] ? (LH.d.matches[id].piste||0) : 0;
-    delete LH.d.matches[id]; lhRenumber(p); lhDirty();
+    delete LH.d.matches[id]; lhRenumber(p);
+    var b = lhBracket(); if (b) b.rounds.forEach(function(r){ r.entries.forEach(function(e){ if (e.mid === id) e.mid = null; }); });
+    lhDirty();
   });
 }
 function lhOpenInScoreboard(id){
@@ -4780,7 +5102,8 @@ function lhToggleLock(){
 }
 function lhResultSheet(id){
   var x = LH.d.matches[id]; if (!x){ lvCloseSheet(); return; }
-  if (!LH.pub || !LH.pub[id]){ toast('Publish first \u2014 this match is not on Fencing Live yet'); return; }
+  var known = LH.pub && Object.keys(LH.pub).length;
+  if ((known && !LH.pub[id]) || (!known && LH.dirty)){ toast('Publish first \u2014 this match is not on Fencing Live yet'); return; }
   if (LH.d.meta.locked){ toast('Unlock the event (Results tab) to change scores'); return; }
   var m = lhModel(), mx = lvFindMatch(m, id), r = m.results[id];
   if (!mx) return;
@@ -4828,9 +5151,49 @@ function lhClearResult(id){
 }
 
 /* ---------- share ---------- */
+function lhCheckinCard(){
+  var st = LH.d.meta.checkin || '', ci = LH.checkins || {}, d = LH.d;
+  var present = Object.keys(d.fencers).filter(function(id){ return !d.fencers[id].absent; }), here = present.filter(function(id){ return ci[id]; }).length;
+  var h = '<div class="lv-card"><div class="lv-team-head"><span class="lv-team-name">📍 Check-in · ' + (st==='open' ? '<span style="color:#4cd37b;">open</span>' : (st==='closed' ? 'closed' : 'not started')) + '</span>' +
+    (st ? '<span class="lr-chip">' + here + '/' + present.length + ' here</span>' : '') + '</div>';
+  if (!st) h += '<div class="lv-sub" style="margin-top:0;">Publish your fencer list and teams first (everyone assumed to come). Open check-in when doors open: fencers scan the check-in QR, tap their name, and then see the event as themselves.</div>' +
+    '<button class="btn btn-gold btn-block" onclick="lhSetCheckin(\'open\')">Open check-in</button>';
+  else if (st === 'open') h += '<div class="live-actions" style="margin:0;"><button class="btn btn-gold" onclick="lhCheckinPoster()">Show check-in QR</button><button class="btn btn-ghost" onclick="lhSetCheckin(\'closed\')">Close check-in</button></div>' +
+    '<div class="lv-sub">Follow arrivals live in the Fencers tab. Tap a name there to check someone in by hand.</div>';
+  else h += '<div class="live-actions" style="margin:0;"><button class="btn btn-gold" onclick="LH.tab=\'fencers\';LH.ciFilter=\'missing\';lhRender()">See no-shows</button><button class="btn btn-ghost" onclick="lhSetCheckin(\'open\')">Reopen</button></div>';
+  return h + '</div>';
+}
+function lhSetCheckin(st){
+  var msg = st === 'open' ? 'Open check-in now?' : 'Close check-in? Fencers can no longer check themselves in; you can still do it for them.';
+  if (LH.dirty) msg += ' This also publishes your other unpublished changes.';
+  askConfirm(msg, function(){
+    LH.d.meta.checkin = st; LH.dirty = true;
+    lhPublish(function(){ toast(st === 'open' ? '📍 Check-in is open' : 'Check-in closed — see who did not come in the Fencers tab'); if (st === 'open') lhCheckinPoster(); });
+  });
+}
+function lhCheckinPoster(){
+  var link = lvCheckinLink(LH.code);
+  lvSheet('<div class="lv-poster"><div class="lv-poster-t">CHECK IN HERE</div><div class="lv-poster-n">' + esc(LH.d.meta.name) + '</div>' +
+    '<div id="ciQr" class="lv-qr" style="padding:14px;"></div>' +
+    '<div class="lv-sub">Scan with your phone camera, then tap your name.</div>' +
+    (link ? '<div class="lv-link">' + esc(link) + '</div>' : '<div class="lv-bigcode">' + esc(LH.code) + '</div>') +
+    '</div><div class="sheet-row">' + (link ? '<button class="btn btn-ghost btn-block" onclick="lvCopy(\'' + escAttr(link) + '\')">Copy link</button>' : '') + '<button class="btn btn-gold btn-block" onclick="lvCloseSheet()">Done</button></div>');
+  lvQrInto('ciQr', link, 240);
+}
+function lvQrInto(elId, link, size){
+  var el = document.getElementById(elId);
+  if (!el || !link){ if (el) el.style.display = 'none'; return; }
+  function draw(){ var e2 = document.getElementById(elId); if (!e2) return; try { e2.innerHTML = ''; new QRCode(e2, { text:link, width:size, height:size, colorDark:'#0a1628', colorLight:'#ffffff' }); } catch(e){ e2.style.display = 'none'; } }
+  if (window.QRCode){ draw(); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+  s.onload = draw;
+  s.onerror = function(){ var e2 = document.getElementById(elId); if (e2) e2.style.display = 'none'; };
+  document.head.appendChild(s);
+}
 function lhShareHtml(){
   var link = lvViewLink(LH.code);
-  return '<div class="lv-card" style="text-align:center;">' +
+  return lhCheckinCard() + '<div class="lv-card" style="text-align:center;">' +
       '<div class="lv-sub" style="margin-top:0;">Viewers open this link or scan the code. No login needed.</div>' +
       '<div id="lhQr" class="lv-qr"></div>' +
       '<div class="lv-bigcode">' + esc(LH.code) + '</div>' +
@@ -4864,7 +5227,8 @@ function lhSettingsSheet(){
   if (!LH) return;
   var wOpts = '';
   WEAPONS.forEach(function(w){ wOpts += '<option value="' + w.id + '">' + w.name + '</option>'; });
-  lvSheet('<div class="sheet-title">\u2699 Event settings</div>' +
+  var tLabel = LH.d.meta.type === 'teams' ? 'Teams \u00b7 DE' : (LH.d.meta.type === 'individual' ? 'Individual \u00b7 ' + ({pool:'Pool', vet:'Veteran DE', senior:'Senior DE'}[LH.d.meta.fmt] || '') : 'Mixed');
+  lvSheet('<div class="sheet-title">\u2699 Event settings</div><div class="lv-sub" style="margin-top:0;">Event type: <b>' + tLabel + '</b></div>' +
     '<label>Event name</label><input id="lsName" maxlength="60" value="' + escAttr(LH.d.meta.name) + '">' +
     '<div style="display:flex;gap:8px;margin-top:10px;"><div style="flex:1;"><label>Date</label><input id="lsDate" type="date" value="' + escAttr(LH.d.meta.date||'') + '"></div>' +
     '<div style="flex:1;"><label>Weapon</label><select id="lsWeapon">' + wOpts + '</select></div></div>' +
@@ -4902,10 +5266,10 @@ function lvOpenViewFromInput(){
   if (code.length !== 6){ toast('Event codes have 6 characters'); return; }
   lvOpenView(code);
 }
-function lvOpenView(code){
+function lvOpenView(code, opts){
   if (!liveEnabled()){ toast('Fencing Live is not connected to its database yet'); return; }
   lvCloseView();
-  LV = { code:code, pub:null, res:null, net:'', tab:'bouts', me:Store.get('starport_lv_me_' + code, ''), streams:[] , loaded:false };
+  LV = { code:code, pub:null, res:null, net:'', tab:'bouts', me:Store.get('starport_lv_me_' + code, ''), streams:[] , loaded:false, wantCheckin:!!(opts && opts.checkin) };
   show('liveView');
   lvvRender();
   lvStartStreams();
@@ -4941,6 +5305,8 @@ function lvvRender(){
   var opts = '<option value="">Find me…</option>' + nameList.map(function(n){ return '<option value="' + escAttr(n) + '"' + (n===LV.me?' selected':'') + '>' + esc(n) + '</option>'; }).join('');
   var html = '<div class="lv-sub" style="margin-top:0;">' + esc([m.meta.date, (WEAPONS.filter(function(w){ return w.id===m.meta.weapon; })[0]||{}).name, (function(){ var n = lvPistesUsed(m.matches).filter(Boolean).length || m.meta.pistes; return n + ' piste' + (n>1?'s':''); })()].filter(Boolean).join(' · ')) + (m.meta.locked ? ' · 🔒 final' : '') + '</div>' +
     '<select style="margin-bottom:10px;" onchange="lvvSetMe(this.value)">' + opts + '</select>';
+  html += lvCheckinBanner(m);
+  if (LV.wantCheckin){ LV.wantCheckin = false; setTimeout(function(){ lvCheckinSheet(); }, 0); }
   if (LV.me) html += lvNextBoutHtml(m, LV.me);
   var tabs = [['bouts','Bouts'],['standings','Standings']];
   if (m.teams.length) tabs.push(['teams','Teams']);
@@ -4979,6 +5345,10 @@ function lvMatchDetail(id){
       html += '<div class="lr-r' + (played ? '' : ' dim') + '"><span>' + b.n + '</span><span>' + esc(b.fencerA||'—') + '</span><span>' + (played ? ca + '–' + cb : '') + '</span><span>' + esc(b.fencerB||'—') + '</span></div>';
     });
     html += '</div>';
+  } else if (x.fmt==='team' && x.relay){
+    html += '<div class="lv-sub" style="margin-bottom:4px;">Bout order (to 5, 10, 15 \u2026 45)</div><div class="lv-relay"><div class="lr-h"><span>#</span><span>' + esc(x.teamA||'A') + '</span><span>To</span><span>' + esc(x.teamB||'B') + '</span></div>';
+    lvRelayRows(m, x).forEach(function(r){ html += '<div class="lr-r"><span>' + r.n + '</span><span>' + esc(r.a||'\u2014') + '</span><span>' + (r.n*5) + '</span><span>' + esc(r.b||'\u2014') + '</span></div>'; });
+    html += '</div>';
   } else if (x.fmt==='team' && (x.rosterA.length || x.rosterB.length)){
     html += '<div class="lv-sub">' + esc(x.teamA) + ': ' + esc(x.rosterA.map(function(f){ return f.name; }).join(', ')) + '<br>' + esc(x.teamB) + ': ' + esc(x.rosterB.map(function(f){ return f.name; }).join(', ')) + '</div>';
   }
@@ -4991,6 +5361,7 @@ function lvMatchPicture(id){
   try {
     var m = lvCurrentModel(), x = lvFindMatch(m, id); if (!x) return;
     var st = lvMatchStatus(m, x), r = m.results[id], bouts = (r && r.bouts) || [];
+    if (!bouts.length && x.fmt==='team' && x.relay) bouts = lvRelayRows(m, x).map(function(q){ return { n:q.n, fencerA:q.a, fencerB:q.b, ptsA:0, ptsB:0, status:'pending' }; });
     var W = 1080, H = 640 + (bouts.length ? 120 + bouts.length * 78 : 0), FONT = 'Helvetica,Arial,sans-serif';
     var c = document.createElement('canvas'); c.width = W; c.height = H;
     var ctx = c.getContext('2d');
@@ -5028,6 +5399,74 @@ function lvMatchPicture(id){
     shareCanvasAsImage(c, 'starport-' + String((x.teamA||'a') + '-v-' + (x.teamB||'b')).replace(/[^A-Za-z0-9]+/g,'-') + '.png');
   } catch(e){ toast('Could not create the picture'); }
 }
+/* ---------- CHECK-IN (fencers, no login) ---------- */
+function lvMyFid(m){ for (var i=0;i<m.fencers.length;i++) if (m.fencers[i].name === (LV && LV.me)) return m.fencers[i].id; return null; }
+function lvCheckinBanner(m){
+  var st = m.meta.checkin; if (!st) return '';
+  var present = m.fencers.filter(function(f){ return !f.absent; }), here = present.filter(function(f){ return m.checkins[f.id]; }).length;
+  var fid = lvMyFid(m), mine = fid && m.checkins[fid];
+  if (st === 'open'){
+    if (mine) return '<div class="lv-ci ok">✅ <b>' + esc(LV.me) + '</b> checked in at ' + new Date(mine.at).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}) + '<span>' + here + '/' + present.length + ' here</span></div>';
+    return '<div class="lv-ci"><div><b>📍 Check-in is open</b><br><span>' + here + ' of ' + present.length + ' fencers here</span></div><button class="btn btn-gold btn-sm" onclick="lvCheckinSheet()">Check in</button></div>';
+  }
+  return '<div class="lv-ci closed">Check-in closed · ' + here + ' of ' + present.length + ' fencers checked in' + (mine ? ' · ✅ you' : '') + '</div>';
+}
+function lvCheckinSheet(q){
+  if (!LV) return;
+  var m = lvModel(LV.pub, LV.res);
+  if (!m.meta){ return; }
+  if (m.meta.checkin !== 'open'){ toast(m.meta.checkin === 'closed' ? 'Check-in has closed — please see the host' : 'Check-in has not opened yet'); return; }
+  var html = '<div class="sheet-title">📍 Check in</div>' +
+    '<div class="lv-sub" style="margin-top:0;">' + esc(m.meta.name) + ' — tap your name.</div>' +
+    '<input id="ciSearch" placeholder="Search your name" autocomplete="off" oninput="lvCheckinFilter()" value="' + escAttr(q||'') + '">' +
+    '<div class="lv-ci-list" id="ciList"></div>' +
+    '<div class="lv-sub">Not on the list? Please see the host.</div>' +
+    '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Close</button></div>';
+  lvSheet(html);
+  lvCheckinFilter();
+}
+function lvCheckinFilter(){
+  var el = document.getElementById('ciList'); if (!el || !LV) return;
+  var m = lvModel(LV.pub, LV.res), q = String(lvVal('ciSearch')||'').toLowerCase().trim();
+  var list = m.fencers.filter(function(f){ return !f.absent && (!q || f.name.toLowerCase().indexOf(q) >= 0 || (f.club||'').toLowerCase().indexOf(q) >= 0); });
+  el.innerHTML = list.map(function(f){
+    var c = m.checkins[f.id];
+    return '<button class="lv-ci-row' + (c ? ' done' : '') + '" onclick="lvCheckinPick(\'' + f.id + '\')"><span><b>' + esc(f.name) + '</b>' + (f.club ? '<small>' + esc(f.club) + '</small>' : '') + '</span>' + (c ? '<em>✓ here</em>' : '') + '</button>';
+  }).join('') || '<div class="lv-empty" style="padding:16px;">No names match.</div>';
+}
+function lvCheckinPick(fid){
+  var m = lvModel(LV.pub, LV.res), f = m.fmap[fid]; if (!f) return;
+  if (m.checkins[fid]){
+    lvSheet('<div class="sheet-title">' + esc(f.name) + ' is already checked in</div>' +
+      '<div class="lv-sub" style="margin-top:0;">If that’s you, you can follow the event as yourself.</div>' +
+      '<div class="sheet-row" style="flex-direction:column;gap:8px;"><button class="btn btn-gold btn-block" onclick="lvBecome(\'' + fid + '\')">That’s me — show my bouts</button>' +
+      '<button class="btn btn-ghost btn-block" onclick="lvCheckinSheet()">Back to the list</button></div>');
+    return;
+  }
+  lvSheet('<div class="sheet-title">Check in as ' + esc(f.name) + '?</div>' +
+    '<div class="lv-sub" style="margin-top:0;">' + esc([f.club, f.country].filter(Boolean).join(' · ')) + '</div>' +
+    '<div class="sheet-row" style="flex-direction:column;gap:8px;"><button class="btn btn-gold btn-block" id="ciBtn" onclick="lvDoCheckin(\'' + fid + '\')">✅ Yes, that’s me — check in</button>' +
+    '<button class="btn btn-ghost btn-block" onclick="lvCheckinSheet()">No, go back</button></div>');
+}
+function lvBecome(fid){
+  var m = lvModel(LV.pub, LV.res), f = m.fmap[fid]; if (!f) return;
+  LV.me = f.name; Store.set('starport_lv_me_' + LV.code, f.name); Store.set('starport_lv_ci_' + LV.code, fid);
+  LV.tab = 'bouts'; LV.mode = 'now';
+  lvCloseSheet(); lvvRender();
+  try { document.getElementById('liveView').scrollTo(0,0); } catch(e){}
+}
+function lvDoCheckin(fid){
+  var m = lvModel(LV.pub, LV.res), f = m.fmap[fid]; if (!f) return;
+  var btn = document.getElementById('ciBtn'); if (btn){ btn.disabled = true; btn.textContent = 'Checking in…'; }
+  liveFetch('PUT', '/events/' + LV.code + '/public/checkins/' + sId(fid), { at:Date.now(), name:f.name, device:liveDeviceId() }).then(function(r){
+    if (r.ok){ toast('✅ Checked in — welcome, ' + f.name); lvBecome(fid); return; }
+    if (btn){ btn.disabled = false; btn.textContent = '✅ Yes, that’s me — check in'; }
+    var m2 = lvModel(LV.pub, LV.res);
+    if (m2.checkins[fid]){ lvBecome(fid); toast('You were already checked in'); return; }
+    if (m2.meta.checkin !== 'open'){ toast('Check-in has closed — please see the host'); return; }
+    toast((r.status===401 || r.status===403) ? 'Could not check in — please see the host' : 'Could not check in: ' + liveReason(r) + '. Try again.');
+  });
+}
 function lvSetMode(v){ if (LV){ LV.mode = v; Store.set('starport_lv_mode', v); lvvRender(); } }
 /* Running order across all pistes: by start time if set, then each piste's order,
    interleaved (1st bout on every piste, then 2nd, ...), like a strip schedule. */
@@ -5047,6 +5486,31 @@ function lvRunningOrder(m){
   return list;
 }
 function lvRunningIndex(m, x){ var l = lvRunningOrder(m); for (var i=0;i<l.length;i++) if (l[i].id===x.id) return i; return 9999; }
+function lvRelayRows(m, x){
+  // planned order from rosters, replaced by what was actually fenced once a result has names
+  var r = m.results[x.id], rows = [];
+  for (var i=0;i<9;i++){
+    var pa = '', pb = '';
+    if (x.relay){ var a = x.rosterA[x.relay[i][0]], b = x.rosterB[x.relay[i][1]]; pa = a ? a.name : ''; pb = b ? b.name : ''; }
+    var rb = r && r.bouts && r.bouts[i];
+    if (rb){ pa = rb.fencerA || pa; pb = rb.fencerB || pb; }
+    rows.push({ n:i+1, a:pa, b:pb, rb:rb });
+  }
+  return rows;
+}
+function lvRelayDetails(m, x, open){
+  if (!x.relay && !(m.results[x.id] && m.results[x.id].bouts && m.results[x.id].bouts.length)){
+    return '<div class="lv-sub" style="margin:-2px 0 8px 32px;font-size:12px;">Bout order appears once both teams have 3 fencers.</div>';
+  }
+  var rows = lvRelayRows(m, x), ca = 0, cb = 0;
+  var h = '<details class="lv-order"' + (open ? ' open' : '') + '><summary>9-bout order \u00b7 ' + esc(x.teamA) + ' v ' + esc(x.teamB) + '</summary><div class="lv-relay">';
+  rows.forEach(function(r){
+    var played = r.rb && (r.rb.status==='done' || r.rb.ptsA || r.rb.ptsB);
+    if (r.rb){ ca += r.rb.ptsA; cb += r.rb.ptsB; }
+    h += '<div class="lr-r' + (played ? '' : ' dim') + '"><span>' + r.n + '</span><span>' + esc(r.a||'\u2014') + '</span><span>' + (played ? ca + '\u2013' + cb : (r.n*5)) + '</span><span>' + esc(r.b||'\u2014') + '</span></div>';
+  });
+  return h + '</div></details>';
+}
 function lvTapAttr(id){ return ' onclick="lvMatchDetail(\'' + id + '\')"'; }
 function lvScheduleHtml(m, me){
   if (!m.matches.length) return '<div class="lv-empty">The host has not published any bouts yet.</div>';
@@ -5096,7 +5560,7 @@ function lvBoutsByPiste(m, me){
   lvPistesUsed(m.matches).forEach(function(p){
     var list = lvOnPiste(m, p);
     html += '<div class="section-head">' + (p ? 'Piste ' + p : 'Piste to be confirmed') + '</div>';
-    list.forEach(function(x){ html += lvMatchRow(m, x, me, lvTapAttr(x.id)); });
+    list.forEach(function(x){ html += lvMatchRow(m, x, me, lvTapAttr(x.id)); if (x.fmt==='team') html += lvRelayDetails(m, x, false); });
   });
   return html;
 }
@@ -5132,7 +5596,7 @@ function lvStandingsHtml(m){
 function lvTeamsViewHtml(m, me){
   return m.teams.map(function(t){
     return '<div class="lv-card"><div class="lv-team-head"><span class="lv-team-name">' + esc(t.name) + '</span><span class="lr-chip">' + t.members.length + '</span></div>' +
-      '<div class="lv-chips">' + t.members.map(function(f){ return '<span class="lv-chip' + (f.name===me?' sel':'') + '">' + esc(f.name) + (f.club ? ' <small>' + esc(f.club) + '</small>' : '') + '</span>'; }).join('') + '</div></div>';
+      '<div class="lv-chips">' + t.members.map(function(f){ return '<span class="lv-chip' + (f.name===me?' sel':'') + '">' + (m.meta.checkin && m.checkins[f.id] ? '\u2713 ' : '') + esc(f.name) + (f.club ? ' <small>' + esc(f.club) + '</small>' : '') + '</span>'; }).join('') + '</div></div>';
   }).join('');
 }
 function lvMyRows(m, me){
@@ -5211,6 +5675,8 @@ document.addEventListener('visibilitychange', function(){
 function lvHandleLink(){
   try {
     var h = String(location.hash || '');
+    var mc = h.match(/checkin=([A-Za-z0-9]{6})/);
+    if (mc){ try { history.replaceState(null, '', location.pathname); } catch(e){} lvOpenView(mc[1].toUpperCase(), { checkin:true }); return true; }
     var mv = h.match(/view=([A-Za-z0-9]{6})/);
     if (mv){ try { history.replaceState(null, '', location.pathname); } catch(e){} lvOpenView(mv[1].toUpperCase()); return true; }
     if (h.indexOf('live=') >= 0){ show('setup'); return false; }
