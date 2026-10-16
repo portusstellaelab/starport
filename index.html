@@ -898,6 +898,18 @@ label{display:block;font-size:12px;font-weight:500;color:var(--muted);text-trans
       <input id="tSec" type="number" inputmode="numeric" placeholder="Sec" value="0">
       <button class="btn btn-primary" onclick="setTimerCustom()" style="flex:0 0 76px;">Set</button>
     </div>
+    <div id="pasEditWrap" style="display:none;">
+      <div class="sheet-title" style="font-size:16px;margin-top:16px;">No-touch timer (épée)</div>
+      <div class="sheet-row" style="margin-top:0;">
+        <button class="btn btn-ghost btn-block" onclick="setPasPreset(60)">1:00</button>
+        <button class="btn btn-ghost btn-block" onclick="setPasPreset(30)">0:30</button>
+      </div>
+      <div class="sheet-row">
+        <input id="pMin" type="number" inputmode="numeric" placeholder="Min" value="1">
+        <input id="pSec" type="number" inputmode="numeric" placeholder="Sec" value="0">
+        <button class="btn btn-primary" onclick="setPasCustom()" style="flex:0 0 76px;">Set</button>
+      </div>
+    </div>
     <div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="closeSheet('timerSheet')">Cancel</button></div>
   </div>
 </div>
@@ -1779,14 +1791,34 @@ function startTimer(){
 }
 function stopTimer(){ if (timer.running) beep(260,60,0.16); timer.running=false; clearInterval(tick); tick=null; renderTimerBlock(); }
 function resetTimer(){ if (!M) return; stopTimer(); timer.seconds = (M?M.periodMins:3)*60; renderTimerBlock(); }
-function confirmResetTimer(){ askConfirm('Reset timer to full time?', resetTimer); }
+function confirmResetTimer(){
+  if (!passivityOn()){ askConfirm('Reset timer to full time?', resetTimer); return; }
+  var mm = (M ? M.periodMins : 3);
+  lvSheet('<div class="sheet-title">Reset timer?</div>' +
+    '<div class="lv-sub" style="margin-top:0;">Main timer back to ' + mm + ':00. The no-touch timer is at ' + Math.floor(pas.sec/60) + ':' + String(pas.sec%60).padStart(2,'0') + '.</div>' +
+    '<div class="sheet-row" style="flex-direction:column;gap:8px;">' +
+      '<button class="btn btn-gold btn-block" onclick="lvCloseSheet();resetTimer();resetPas();renderTimerBlock();toast(\'Timer and no-touch timer reset\')">Reset both (' + mm + ':00 and no-touch 1:00)</button>' +
+      '<button class="btn btn-ghost btn-block" onclick="lvCloseSheet();resetTimer();toast(\'Timer reset — no-touch timer kept\')">Reset main timer only</button>' +
+      '<button class="btn btn-ghost btn-block" onclick="lvCloseSheet();stopTimer();resetPas();renderTimerBlock();toast(\'No-touch timer reset\')">Reset no-touch timer only</button>' +
+      '<button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button>' +
+    '</div>');
+}
 function autoPauseTimer(){ if (timer.running) stopTimer(); }
 function openTimerEdit(){
   document.getElementById('tMin').value = Math.floor(timer.seconds/60);
   document.getElementById('tSec').value = timer.seconds%60;
+  var pw = document.getElementById('pasEditWrap');
+  if (pw){ var on = passivityOn(); pw.style.display = on ? 'block' : 'none'; if (on){ document.getElementById('pMin').value = Math.floor(pas.sec/60); document.getElementById('pSec').value = pas.sec%60; } }
   openSheet('timerSheet');
 }
 function setTimerPreset(sec){ stopTimer(); timer.seconds=sec; renderTimerBlock(); closeSheet('timerSheet'); }
+function setPasPreset(sec){ stopTimer(); pas.sec = Math.max(1, Math.min(600, sec)); renderTimerBlock(); closeSheet('timerSheet'); toast('No-touch timer set to ' + Math.floor(pas.sec/60) + ':' + String(pas.sec%60).padStart(2,'0')); }
+function setPasCustom(){
+  var m = parseInt(document.getElementById('pMin').value)||0;
+  var s = parseInt(document.getElementById('pSec').value)||0;
+  if (m*60+s <= 0){ toast('Enter a time above 0:00'); return; }
+  setPasPreset(m*60+s);
+}
 function setTimerCustom(){
   var m = parseInt(document.getElementById('tMin').value)||0;
   var s = parseInt(document.getElementById('tSec').value)||0;
