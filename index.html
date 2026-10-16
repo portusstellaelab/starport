@@ -286,6 +286,27 @@ label{display:block;font-size:12px;font-weight:500;color:var(--muted);text-trans
 .lv-now-tag{font-size:10px;letter-spacing:.14em;font-family:'DM Mono',monospace;color:#4cd37b;margin:6px 0 4px;}
 .lv-now-tag.dim{color:var(--muted);}
 .lm-ord{min-width:22px;width:auto;}
+.lr-chip.off{color:#e67e73;border-color:rgba(231,76,60,.35);text-decoration:line-through;}
+.live-row.off .lr-names{color:var(--muted);text-decoration:line-through;}
+.ms-grid{display:grid;grid-template-columns:30px 1fr 96px 1fr;gap:5px;align-items:center;margin-bottom:6px;}
+.ms-grid input{padding:7px 6px;font-size:16px;}
+.ms-h{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ms-n{font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);text-align:center;line-height:1.1;}
+.ms-n small{display:block;font-size:9px;opacity:.7;}
+.ms-sc{display:flex;align-items:center;gap:2px;}
+.ms-sc input{text-align:center;padding:7px 2px;}
+.ms-sc span{color:var(--muted);}
+.to-grid{grid-template-columns:36px 1fr 40px 1fr;}
+.lv-detail-score{display:flex;gap:10px;margin:6px 0;}
+.lv-detail-score div{flex:1;text-align:center;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:10px 6px;}
+.lv-detail-score b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lv-detail-score span{display:block;font-family:'Bebas Neue',sans-serif;font-size:48px;color:var(--gold);line-height:1.1;}
+.lv-relay{border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:4px 0 8px;}
+.lv-relay > div{display:grid;grid-template-columns:28px 1fr 64px 1fr;gap:4px;padding:6px 8px;font-size:13px;border-top:1px solid var(--border);}
+.lv-relay .lr-h{border-top:none;background:rgba(255,255,255,.04);color:var(--muted);font-size:11px;text-transform:uppercase;}
+.lv-relay .lr-r span:nth-child(3){text-align:center;font-family:'DM Mono',monospace;color:var(--gold);}
+.lv-relay .lr-r span:nth-child(4){text-align:right;}
+.lv-relay .lr-r.dim{color:var(--muted);}
 .lv-x{width:32px;height:32px;border-radius:8px;color:var(--muted);font-size:20px;flex-shrink:0;}
 .held-cards-line{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin:2px 0 8px;font-family:'DM Mono',monospace;min-height:15px;}
 
@@ -1951,6 +1972,7 @@ function renderLive(dA, dB, leftCls, rightCls){
       '<div class="bout-info-box' + (onCurrent ? '' : ' viewing-past') + '">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;">' +
           '<span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;"><span style="color:var(--gold);">target: ' + ab.target + ' pts total</span></span>' +
+          '<button class="btn btn-ghost btn-sm" style="padding:5px 10px;margin-right:6px;" onclick="openTeamOrder()">\u21C4 Team order</button>' +
           '<button class="btn btn-ghost btn-sm" style="padding:5px 12px;" onclick="openBoutEdit(' + vi + ')">\u270E Edit bout ' + ab.boutNum + '</button>' +
         '</div>' +
         '<div class="bout-fencers-display">' +
@@ -3164,7 +3186,15 @@ function liveCleanEvent(d){
     var m = liveCleanMatch(keys[i], src[keys[i]], ev.weapon);
     if (m) ev.matches.push(m); else ev.skipped++;
   }
-  ev.matches.sort(function(a,b){ return (a.piste-b.piste) || (a.order-b.order); });
+  // attach what Live knows about each bout (finished, withdrawn, moved to end)
+  var res = (d.results && typeof d.results==='object') ? d.results : {};
+  ev.matches.forEach(function(mm){
+    var r = lvCleanResult(res[mm.id]);
+    mm.rs = r ? r.status : ''; mm.rseq = r ? r.seq : 0;
+    mm.rsA = r && r.hasScore ? r.scoreA : null; mm.rsB = r && r.hasScore ? r.scoreB : null;
+    mm.rbouts = r && r.bouts.length ? r.bouts : null;
+  });
+  ev.matches.sort(liveMatchCmp);
   return ev;
 }
 
@@ -3213,23 +3243,31 @@ function liveConnect(){
     });
   });
 }
-function liveRefresh(){
+function liveRefresh(quiet){
   if (!liveConn || liveBusy) return;
   liveBusy = true;
-  toast('Refreshing bouts…');
+  if (!quiet) toast('Refreshing bouts\u2026');
   var code = liveConn.code;
   liveFetch('GET', '/events/' + code + '/public').then(function(r){
     liveBusy = false;
     if (!liveConn || liveConn.code !== code) return;
     var ev = (r.ok && r.data) ? liveCleanEvent(r.data) : null;
-    if (!ev){ toast('Could not refresh (' + liveReason(r.ok ? {status:404} : r) + ') — showing the saved list'); return; }
+    if (!ev){ if (!quiet) toast('Could not refresh (' + liveReason(r.ok ? {status:404} : r) + ') \u2014 showing the saved list'); return; }
     liveConn.eventName = ev.name; liveConn.weapon = ev.weapon; liveConn.pistes = ev.pistes;
     liveConn.matches = ev.matches; liveConn.fetchedAt = Date.now();
     if (liveConn.piste && lvPistesUsed(ev.matches).indexOf(liveConn.piste) < 0) liveConn.piste = 0;
     liveSaveConn(); renderLivePanel();
-    toast('Bout list updated');
+    if (!quiet) toast('Bout list updated');
   });
 }
+function liveMatchCmp(a, b){
+  if (a.piste !== b.piste) return (a.piste||1000) - (b.piste||1000);
+  var da = a.rs==='deferred' ? 1 : 0, db = b.rs==='deferred' ? 1 : 0;
+  if (da !== db) return da - db;
+  if (da) return a.rseq - b.rseq;
+  return a.order - b.order;
+}
+function liveClosedM(mm){ return mm.rs==='done' || mm.rs==='cancelled'; }
 function liveDisconnect(){
   if (!liveConn) return;
   askConfirm('Disconnect from ' + liveConn.eventName + '? Results waiting to upload stay on this device.', function(){
@@ -3273,19 +3311,29 @@ function renderLivePanel(){
     var k = liveKey(liveConn.code, m.id);
     var chip;
     if (ob[k]) chip = '<span class="lr-chip wait">⏳ waiting</span>';
+    else if (m.rs==='cancelled') chip = '<span class="lr-chip off">withdrawn</span>';
+    else if (m.rs==='done') chip = '<span class="lr-chip ok">' + (m.rsA!=null ? m.rsA + '–' + m.rsB : 'done') + '</span>';
     else if (sent[k] && sent[k].final) chip = '<span class="lr-chip ok">✓ uploaded</span>';
-    else if (sent[k]) chip = '<span class="lr-chip wait">part sent</span>';
-    else if (m.status==='done') chip = '<span class="lr-chip ok">done</span>';
+    else if (m.rs==='in_progress' || sent[k]) chip = '<span class="lr-chip wait">' + (m.rsA!=null ? m.rsA + '–' + m.rsB : 'part sent') + '</span>';
+    else if (m.rs==='deferred') chip = '<span class="lr-chip">moved to end</span>';
     else chip = '<span class="lr-chip">open</span>';
     var a = m.teamA || 'TBC', b = m.teamB || 'TBC';
     var cls = 'live-row' + (pendingLiveLoad && pendingLiveLoad.matchId===m.id ? ' loaded' : '') + (liveHighlight===m.id ? ' hl' : '');
     var meta = [m.piste ? 'Piste ' + m.piste : '', m.round, fmtNameById(m.fmt)].filter(Boolean).join(' · ');
+    if (m.rs==='cancelled') cls += ' off';
     rows += '<div class="' + cls + '" onclick="liveLoadMatch(\'' + m.id + '\')">' +
       '<div class="lr-main"><div class="lr-names">' + esc(a) + ' <span style="color:var(--muted);font-weight:400;">v</span> ' + esc(b) + '</div>' +
-      '<div class="lr-meta">' + esc(meta) + '</div></div>' + chip + '</div>';
+      '<div class="lr-meta">' + esc(meta) + '</div></div>' + chip +
+      '<button class="lv-x" aria-label="More" onclick="event.stopPropagation();liveRowMenu(\'' + m.id + '\')">⋯</button></div>';
   }
   if (!shown) rows = '<div style="color:var(--muted);font-size:13px;padding:10px 0;text-align:center;">No bouts for this piste yet. Tap Refresh after the host publishes them.</div>';
   var banner = '';
+  if (liveConn.piste && !pendingLiveLoad){
+    var nx = liveConn.matches.filter(function(y){ return y.piste===liveConn.piste && !liveClosedM(y); })[0];
+    if (nx) banner = '<div class="live-banner" style="border-color:rgba(46,125,212,.6);background:rgba(46,125,212,.12);">Next on Piste ' + liveConn.piste + ': <b>' + esc(nx.teamA||'TBC') + ' v ' + esc(nx.teamB||'TBC') + '</b> ' +
+      '<button class="btn btn-gold btn-sm" style="margin-left:6px;" onclick="liveLoadMatch(\'' + nx.id + '\')">Open</button></div>';
+    else banner = '<div class="live-banner">✅ All bouts on Piste ' + liveConn.piste + ' are finished.</div>';
+  }
   if (pendingLiveLoad){
     banner = '<div class="live-banner">✅ Loaded: <b>' + esc(pendingLiveLoad.teamA||'') + ' v ' + esc(pendingLiveLoad.teamB||'') + '</b>. Check or edit names below, then tap Start match. ' +
       '<button class="link" style="color:var(--gold);" onclick="liveUnload()">Unlink</button></div>';
@@ -3293,7 +3341,7 @@ function renderLivePanel(){
   el.innerHTML = '<div class="live-card">' +
     '<div class="live-head"><span class="live-dot"></span><span class="live-title">' + esc(liveConn.eventName) + '</span>' +
       '<span class="lr-chip">' + esc(liveConn.code) + '</span></div>' +
-    '<div class="live-sub">Tap a bout to open it in the scoreboard. Updated ' + new Date(liveConn.fetchedAt).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}) + '.</div>' +
+    '<div class="live-sub">Tap a bout to open it in the scoreboard, or \u22EF for withdrawals, moving a bout or a paper score sheet. Updated ' + new Date(liveConn.fetchedAt).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}) + '.</div>' +
     banner +
     '<select style="margin-bottom:8px;" onchange="liveSetPiste(this.value)">' + pisteOpts + '</select>' +
     '<div class="live-list">' + rows + '</div>' +
@@ -3344,6 +3392,7 @@ function liveLoadMatch(id){
           }
         }
       }
+      if (m.piste) liveConn.piste = m.piste;   // follow this referee's piste for the 'Next on piste' prompt
       pendingLiveLoad = { code:liveConn.code, matchId:m.id, piste:m.piste, fmt:m.fmt, relay:m.relay,
         teamA:m.teamA, teamB:m.teamB,
         rosterA:m.rosterA.map(function(x){return x.name;}), rosterB:m.rosterB.map(function(x){return x.name;}) };
@@ -3356,10 +3405,220 @@ function liveLoadMatch(id){
       toast('Could not load that bout — enter it manually');
     }
   }
-  if ((sent[k] && sent[k].final) || m.status==='done') askConfirm('This bout already has a result on Starport Live. Open it again? Uploading again will replace that result.', go);
+  if (m.rs === 'cancelled') askConfirm('This bout was marked Withdrawn. Open it anyway? Uploading a score will put it back in the results.', go);
+  else if ((sent[k] && sent[k].final) || m.status==='done' || m.rs==='done') askConfirm('This bout already has a result on Starport Live. Open it again? Uploading again will replace that result.', go);
   else go();
 }
 function liveUnload(){ pendingLiveLoad = null; renderLivePanel(); toast('Unlinked — this match will stay on this device only'); }
+
+/* ---------- referee tools (each change is one button press, then synced) ---------- */
+function liveWriteResults(code, pin, map, done){
+  var body = {}, n = 0;
+  Object.keys(map).forEach(function(mid){
+    var N = lvNonce(), data = map[mid];
+    data.nonce = N; data.matchId = mid; data.updatedAt = Date.now(); data.device = liveDeviceId();
+    body['public/results/' + sId(mid)] = data;
+    body['resultAuth/' + N] = { pin:pin, m:sId(mid), device:liveDeviceId(), at:Date.now() };
+    n++;
+  });
+  if (!n){ if (done) done({ok:true}); return; }
+  liveFetch('PATCH', '/events/' + sId(code), body).then(function(r){ if (done) done(r); });
+}
+function liveRowMenu(id){
+  var m = liveFindMatch(id); if (!m) return;
+  var open = !liveClosedM(m) && m.rs !== 'in_progress';
+  var html = '<div class="sheet-title">' + esc(m.teamA||'TBC') + ' v ' + esc(m.teamB||'TBC') + '</div>' +
+    '<div class="lv-sub" style="margin-top:0;">' + esc([m.piste ? 'Piste ' + m.piste : '', m.round, fmtNameById(m.fmt)].filter(Boolean).join(' · ')) + '</div>' +
+    '<div class="sheet-row" style="flex-direction:column;gap:8px;">' +
+      '<button class="btn btn-gold btn-block" onclick="lvCloseSheet();liveLoadMatch(\'' + id + '\')">⚔ Open in Scoreboard</button>' +
+      '<button class="btn btn-ghost btn-block" onclick="lvCloseSheet();liveManualFromPanel(\'' + id + '\')">📝 Paper score sheet (enter scores by hand)</button>' +
+      (open && m.rs !== 'deferred' ? '<button class="btn btn-ghost btn-block" onclick="liveDefer(\'' + id + '\', true)">⏭ Move to the end of Piste ' + (m.piste||'') + '</button>' : '') +
+      (m.rs === 'deferred' ? '<button class="btn btn-ghost btn-block" onclick="liveDefer(\'' + id + '\', false)">↩ Put back in its original place</button>' : '') +
+      (m.fmt !== 'team' && !liveClosedM(m) ? '<button class="btn btn-ghost btn-block" style="color:#f0c000;border-color:rgba(240,192,0,.45);" onclick="liveWithdrawSheet(\'' + id + '\')">🚫 A fencer pulled out…</button>' : '') +
+    '</div>' +
+    (m.fmt === 'team' ? '<div class="lv-sub">Team fencer pulling out? Open the match and use <b>⇄ Team order</b> to swap in a substitute or rearrange the remaining bouts.</div>' : '') +
+    '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Close</button></div>';
+  lvSheet(html);
+}
+function liveDefer(id, on){
+  if (!liveConn) return;
+  lvCloseSheet();
+  var map = {}; map[id] = on ? { status:'deferred', seq:Date.now(), referee:'Referee' } : { status:'void' };
+  liveWriteResults(liveConn.code, liveConn.pin, map, function(r){
+    if (r.ok){ toast(on ? 'Moved to the end of the piste — synced to Fencing Live' : 'Put back — synced'); liveRefresh(true); }
+    else toast('Not changed (' + liveReason(r) + ')');
+  });
+}
+function liveWithdrawSheet(id){
+  var m = liveFindMatch(id); if (!m) return;
+  lvSheet('<div class="sheet-title">🚫 Who pulled out?</div>' +
+    '<div class="lv-sub" style="margin-top:0;">All of their bouts that have not finished are marked <b>Withdrawn</b> and removed from the running order on every piste. Finished bouts keep their scores. The host can undo this.</div>' +
+    '<div class="sheet-row" style="flex-direction:column;gap:8px;">' +
+      '<button class="btn btn-ghost btn-block" onclick="liveWithdraw(\'' + id + '\',\'A\')">' + esc(m.teamA||'Fencer A') + '</button>' +
+      '<button class="btn btn-ghost btn-block" onclick="liveWithdraw(\'' + id + '\',\'B\')">' + esc(m.teamB||'Fencer B') + '</button>' +
+    '</div><div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button></div>');
+}
+function liveWithdraw(id, side){
+  var m = liveFindMatch(id); if (!m || !liveConn) return;
+  var who = side==='A' ? m.teamA : m.teamB;
+  var list = liveConn.matches.filter(function(y){ return y.fmt !== 'team' && !liveClosedM(y) && (y.teamA===who || y.teamB===who); });
+  lvCloseSheet();
+  askConfirm(who + ' pulled out: mark ' + list.length + ' unfinished bout' + (list.length!==1?'s':'') + ' as Withdrawn?', function(){
+    var map = {};
+    list.forEach(function(y){ map[y.id] = { status:'cancelled', reason:'Withdrawal: ' + who, referee:'Referee', teamA:y.teamA, teamB:y.teamB }; });
+    liveWriteResults(liveConn.code, liveConn.pin, map, function(r){
+      if (r.ok){ toast(list.length + ' bout' + (list.length!==1?'s':'') + ' withdrawn — schedule updated'); if (pendingLiveLoad && map[pendingLiveLoad.matchId]) pendingLiveLoad = null; liveRefresh(true); }
+      else toast('Not changed (' + liveReason(r) + ')');
+    });
+  });
+}
+function liveManualFromPanel(id){
+  var m = liveFindMatch(id); if (!m || !liveConn) return;
+  lvManualSheet({ code:liveConn.code, pin:liveConn.pin, by:'Referee', match:m,
+    result: m.rs ? { scoreA:m.rsA||0, scoreB:m.rsB||0, final:m.rs==='done', bouts:m.rbouts||[] } : null,
+    done:function(){ liveRefresh(true); } });
+}
+
+/* ---------- paper score sheet: host or referee types the scores from a paper sheet ---------- */
+var lvMS = null;
+function lvManualSheet(ctx){
+  lvMS = ctx;
+  var x = ctx.match, r = ctx.result;
+  var html = '<div class="sheet-title">📝 Score sheet</div>' +
+    '<div class="lv-sub" style="margin-top:0;">' + esc(x.teamA||'A') + ' v ' + esc(x.teamB||'B') + ' · ' + esc([x.round, x.piste ? 'Piste ' + x.piste : ''].filter(Boolean).join(' · ')) + '</div>';
+  if (x.fmt === 'team'){
+    var names = {}; (x.rosterA||[]).concat(x.rosterB||[]).forEach(function(f){ names[f.name] = 1; });
+    html += '<datalist id="msNames">' + Object.keys(names).map(function(n){ return '<option value="' + escAttr(n) + '">'; }).join('') + '</datalist>' +
+      '<div class="lv-sub">Copy the paper sheet: who fenced each bout and the <b>running score after that bout</b> (e.g. 5–3, 10–7). Leave unfenced bouts blank.</div>' +
+      '<div class="ms-grid"><div class="ms-h">#</div><div class="ms-h">' + esc(x.teamA||'A') + '</div><div class="ms-h">Score</div><div class="ms-h">' + esc(x.teamB||'B') + '</div>';
+    var prevBouts = (r && r.bouts) || [], ca = 0, cb = 0;
+    for (var i=0;i<9;i++){
+      var pb = prevBouts[i], fa = '', fb = '', sa = '', sb = '';
+      if (x.relay){ var ra = x.rosterA[x.relay[i][0]], rb = x.rosterB[x.relay[i][1]]; fa = ra ? ra.name : ''; fb = rb ? rb.name : ''; }
+      if (pb){ fa = pb.fencerA || fa; fb = pb.fencerB || fb; ca += pb.ptsA; cb += pb.ptsB; if (pb.status==='done' || pb.ptsA || pb.ptsB){ sa = ca; sb = cb; } }
+      html += '<div class="ms-n">' + (i+1) + '<small>' + ((i+1)*5) + '</small></div>' +
+        '<input id="msFa' + i + '" list="msNames" value="' + escAttr(fa) + '" placeholder="A">' +
+        '<div class="ms-sc"><input id="msA' + i + '" type="number" inputmode="numeric" min="0" max="45" value="' + sa + '"><span>–</span><input id="msB' + i + '" type="number" inputmode="numeric" min="0" max="45" value="' + sb + '"></div>' +
+        '<input id="msFb' + i + '" list="msNames" value="' + escAttr(fb) + '" placeholder="B">';
+    }
+    html += '</div>';
+  } else {
+    html += '<div style="display:flex;gap:10px;"><div style="flex:1;"><label>' + esc(x.teamA||'A') + '</label><input id="msA" type="number" inputmode="numeric" min="0" max="99" value="' + (r ? r.scoreA : '') + '"></div>' +
+      '<div style="flex:1;"><label>' + esc(x.teamB||'B') + '</label><input id="msB" type="number" inputmode="numeric" min="0" max="99" value="' + (r ? r.scoreB : '') + '"></div></div>';
+  }
+  html += '<label style="margin-top:10px;">Status</label><select id="msS"><option value="final">Final — match finished</option><option value="live">In progress</option></select>' +
+    '<div id="msMsg" class="lv-sub" style="color:#f0c000;min-height:18px;"></div>' +
+    '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button><button class="btn btn-gold btn-block" id="msBtn" onclick="lvManualSave()">Save to Fencing Live</button></div>';
+  if (ctx.extraHtml) html += ctx.extraHtml;
+  lvSheet(html);
+  setVal('msS', (!r || r.final) ? 'final' : 'live');
+}
+function lvManualSave(){
+  var c = lvMS; if (!c) return;
+  var x = c.match, msg = document.getElementById('msMsg'), fin = lvVal('msS') === 'final';
+  function bad(t){ if (msg) msg.textContent = t; }
+  var data = { schema:LIVE_SCHEMA, final:fin, status:fin?'done':'in_progress', referee:(c.by||'Referee') + ' (paper sheet)', app:'live-sheet',
+               teamA:x.teamA||'', teamB:x.teamB||'', weapon:x.weapon, fmt:x.fmt };
+  if (x.fmt === 'team'){
+    var bouts = [], pa = 0, pb = 0, last = -1;
+    for (var i=0;i<9;i++){ if (lvVal('msA'+i) !== '' || lvVal('msB'+i) !== '') last = i; }
+    if (last < 0) return bad('Enter the running score for at least bout 1.');
+    for (var j=0;j<9;j++){
+      var a = lvVal('msA'+j), b = lvVal('msB'+j), row = { n:j+1, fencerA:sStr(lvVal('msFa'+j),40), fencerB:sStr(lvVal('msFb'+j),40), ptsA:0, ptsB:0, status:'pending' };
+      if (j <= last){
+        var na = sInt(a,0,99,-1), nb = sInt(b,0,99,-1);
+        if (na < 0 || nb < 0) return bad('Bout ' + (j+1) + ': enter both running scores.');
+        if (na < pa || nb < pb) return bad('Bout ' + (j+1) + ': running scores can’t go down (' + pa + '–' + pb + ' before).');
+        row.ptsA = na - pa; row.ptsB = nb - pb; row.status = 'done'; pa = na; pb = nb;
+      }
+      bouts.push(row);
+    }
+    data.bouts = bouts; data.boutsDone = last + 1; data.scoreA = pa; data.scoreB = pb;
+  } else {
+    var sa = sInt(lvVal('msA'),0,99,-1), sb = sInt(lvVal('msB'),0,99,-1);
+    if (sa < 0 || sb < 0) return bad('Enter both scores.');
+    data.scoreA = sa; data.scoreB = sb;
+  }
+  data.winner = fin ? (data.scoreA > data.scoreB ? 'A' : (data.scoreB > data.scoreA ? 'B' : null)) : null;
+  var btn = document.getElementById('msBtn'); if (btn) btn.disabled = true;
+  var map = {}; map[x.id] = data;
+  liveWriteResults(c.code, c.pin, map, function(r){
+    if (btn) btn.disabled = false;
+    if (r.ok){ lvCloseSheet(); toast('✓ Scores saved to Fencing Live'); if (c.done) c.done(); }
+    else bad('Not saved: ' + liveReason(r) + '.');
+  });
+}
+
+/* ---------- team order: a fencer pulls out, or the order changes mid-match ---------- */
+function teamOrderNames(side){
+  var names = {}, ros = side==='A' ? M.rosterA : M.rosterB;
+  (ros||[]).forEach(function(f){ if (f && f.name) names[f.name] = 1; });
+  M.bouts.forEach(function(b){ var n = side==='A' ? b.fencerA : b.fencerB; if (n) names[n] = 1; });
+  return Object.keys(names);
+}
+function openTeamOrder(){
+  if (!M || !M.relay) return;
+  var rem = M.bouts.filter(function(b){ return b.status !== 'done'; });
+  if (!rem.length){ toast('All bouts are finished'); return; }
+  var nA = teamOrderNames('A'), nB = teamOrderNames('B');
+  var dl = '<datalist id="toA">' + nA.map(function(n){ return '<option value="' + escAttr(n) + '">'; }).join('') + '</datalist>' +
+           '<datalist id="toB">' + nB.map(function(n){ return '<option value="' + escAttr(n) + '">'; }).join('') + '</datalist>';
+  var html = '<div class="sheet-title">\u21C4 Team order</div>' + dl +
+    '<div class="lv-sub" style="margin-top:0;">A fencer pulled out or the order changed? Replace them in every bout still to come, or edit any bout below. Finished bouts are not changed.</div>' +
+    '<div class="lv-card" style="margin-bottom:10px;"><label>Team</label><select id="toSide" onchange="teamOrderSide()"><option value="A">' + esc(M.teamA) + '</option><option value="B">' + esc(M.teamB) + '</option></select>' +
+      '<div style="display:flex;gap:8px;margin-top:8px;"><div style="flex:1;"><label>Fencer out</label><select id="toOut"></select></div>' +
+      '<div style="flex:1;"><label>Replaced by</label><input id="toIn" list="toA" placeholder="Substitute or teammate"></div></div>' +
+      '<button class="btn btn-gold btn-block" style="margin-top:8px;" onclick="teamOrderReplace()">Replace in remaining bouts</button></div>' +
+    '<div class="ms-grid to-grid"><div class="ms-h">Bout</div><div class="ms-h">' + esc(M.teamA) + '</div><div class="ms-h"></div><div class="ms-h">' + esc(M.teamB) + '</div>';
+  M.bouts.forEach(function(b, i){
+    var done = b.status === 'done';
+    html += '<div class="ms-n">' + b.boutNum + '</div>' +
+      '<input id="toFa' + i + '" list="toA" value="' + escAttr(b.fencerA||'') + '"' + (done ? ' disabled' : '') + '>' +
+      '<div class="ms-sc" style="color:var(--muted);font-size:12px;justify-content:center;">' + (done ? b.ptsA + '\u2013' + b.ptsB : 'v') + '</div>' +
+      '<input id="toFb' + i + '" list="toB" value="' + escAttr(b.fencerB||'') + '"' + (done ? ' disabled' : '') + '>';
+  });
+  html += '</div><div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button><button class="btn btn-gold btn-block" onclick="teamOrderSave()">Save order</button></div>';
+  lvSheet(html);
+  teamOrderSide();
+}
+function teamOrderSide(){
+  var side = lvVal('toSide') || 'A', sel = document.getElementById('toOut'), inp = document.getElementById('toIn');
+  if (!sel) return;
+  var used = {};
+  M.bouts.forEach(function(b){ if (b.status !== 'done'){ var n = side==='A' ? b.fencerA : b.fencerB; if (n) used[n] = 1; } });
+  sel.innerHTML = Object.keys(used).map(function(n){ return '<option value="' + escAttr(n) + '">' + esc(n) + '</option>'; }).join('') || '<option value="">(no names set yet)</option>';
+  if (inp) inp.setAttribute('list', side==='A' ? 'toA' : 'toB');
+}
+function teamOrderReplace(){
+  var side = lvVal('toSide') || 'A', out = lvVal('toOut'), inn = sStr(lvVal('toIn'),40);
+  if (!out){ toast('Choose who is out'); return; }
+  if (!inn){ toast('Type or choose the replacement'); return; }
+  var n = 0;
+  M.bouts.forEach(function(b, i){
+    if (b.status === 'done') return;
+    var cur = side==='A' ? b.fencerA : b.fencerB;
+    if (cur === out){ setVal((side==='A' ? 'toFa' : 'toFb') + i, inn); n++; }
+  });
+  toast(n ? n + ' bout' + (n>1?'s':'') + ' updated \u2014 tap Save order' : 'No remaining bouts for ' + out);
+}
+function teamOrderSave(){
+  var changed = 0;
+  M.bouts.forEach(function(b, i){
+    if (b.status === 'done') return;
+    var a = sStr(lvVal('toFa'+i),40), c = sStr(lvVal('toFb'+i),40);
+    if (a !== (b.fencerA||'') || c !== (b.fencerB||'')) changed++;
+    b.fencerA = a; b.fencerB = c;
+  });
+  // make new names available in the fencer pickers
+  ['A','B'].forEach(function(side){
+    var ros = side==='A' ? M.rosterA : M.rosterB, have = {};
+    (ros||[]).forEach(function(f){ have[f.name] = 1; });
+    M.bouts.forEach(function(b){ var n = side==='A' ? b.fencerA : b.fencerB; if (n && !have[n] && ros && ros.length < 6){ ros.push({ name:n, country:'', club:'' }); have[n] = 1; } });
+  });
+  M.orderChanged = true;
+  lvCloseSheet(); renderAll();
+  toast(changed ? 'Order saved \u2014 it goes to Fencing Live with the next upload' : 'No changes');
+}
 
 /* Called by startMatch(). Links the new match to the loaded Live bout. */
 function liveAttachToMatch(){
@@ -3442,6 +3701,7 @@ function liveSendKey(key){
       if (ob[key] && ob[key].queuedAt === e.queuedAt){ delete ob[key]; Store.set('starport_live_outbox', ob); }
       var sent = liveSent(); sent[key] = { final:!!e.payload.final, at:Date.now() }; Store.set('starport_live_sent', sent);
       liveState[key] = { state:'ok', at:Date.now(), final:!!e.payload.final };
+      try { if (liveConn && liveConn.code === e.code && !(M && M.status==='live' && document.getElementById('scoring').classList.contains('on'))) setTimeout(function(){ liveRefresh(true); }, 300); } catch(x){}
     } else {
       liveState[key] = { state:'fail', msg:liveReason(r) };
     }
@@ -3684,15 +3944,39 @@ function lvStream(path, onData, onState){
 }
 
 /* ---------- clean event data for display ---------- */
+/* Result states: done (final score), in_progress, cancelled (fencer withdrew),
+   deferred (moved to the end of its piste), or missing (upcoming). */
 function lvCleanResult(x){
   if (!x || typeof x!=='object' || x.status==='void') return null;
+  var st = x.status==='cancelled' ? 'cancelled' : (x.status==='deferred' ? 'deferred' : (x.final===true ? 'done' : 'in_progress'));
+  var bouts = [];
+  if (x.bouts && typeof x.bouts==='object'){
+    Object.keys(x.bouts).slice(0,9).forEach(function(k){
+      var b = x.bouts[k]; if (!b || typeof b!=='object') return;
+      bouts.push({ n:sInt(b.n,1,9,bouts.length+1), fencerA:sStr(b.fencerA,40), fencerB:sStr(b.fencerB,40),
+                   ptsA:sInt(b.ptsA,0,99,0), ptsB:sInt(b.ptsB,0,99,0), status:(b.status==='done'?'done':(b.status==='active'?'active':'pending')) });
+    });
+  }
   return {
+    status:st, final:st==='done', closed:(st==='done' || st==='cancelled'), deferred:st==='deferred', cancelled:st==='cancelled',
+    hasScore:(st==='done' || st==='in_progress'), seq:sInt(x.seq,0,9e15,0), reason:sStr(x.reason,80),
     scoreA:sInt(x.scoreA,0,999,0), scoreB:sInt(x.scoreB,0,999,0),
-    final: x.final === true, referee:sStr(x.referee,60),
-    teamA:sStr(x.teamA,40), teamB:sStr(x.teamB,40),
-    boutsDone:sInt(x.boutsDone,0,9,0), updatedAt:sInt(x.updatedAt,0,9e15,0)
+    referee:sStr(x.referee,60), teamA:sStr(x.teamA,40), teamB:sStr(x.teamB,40),
+    bouts:bouts, boutsDone:sInt(x.boutsDone,0,9,0), updatedAt:sInt(x.updatedAt,0,9e15,0)
   };
 }
+function lvClosed(m, x){ var r = m.results[x.id]; return !!(r && r.closed); }
+/* Effective order on a piste: moved-to-end bouts go last, in the order they were moved. */
+function lvPisteCmp(m){
+  return function(a, b){
+    var ra = m.results[a.id], rb = m.results[b.id];
+    var da = ra && ra.deferred ? 1 : 0, db = rb && rb.deferred ? 1 : 0;
+    if (da !== db) return da - db;
+    if (da) return ra.seq - rb.seq;
+    return a.order - b.order;
+  };
+}
+function lvOnPiste(m, p){ return m.matches.filter(function(x){ return x.piste === p; }).sort(lvPisteCmp(m)); }
 function lvModel(pub, res){
   var m = { meta:null, fencers:[], fmap:{}, teams:[], matches:[], results:{} };
   if (!pub || typeof pub!=='object' || !pub.meta || typeof pub.meta!=='object') return m;
@@ -3738,6 +4022,8 @@ function lvStandings(model, team){
 function lvMatchStatus(model, x){
   var r = model.results[x.id];
   if (r && r.final) return { cls:'ok', txt:'Final', r:r };
+  if (r && r.cancelled) return { cls:'off', txt:'Withdrawn', r:null };
+  if (r && r.deferred) return { cls:'', txt:'Moved to end', r:null };
   if (r) return { cls:'wait', txt:'In progress', r:r };
   return { cls:'', txt:'Upcoming', r:null };
 }
@@ -3770,7 +4056,7 @@ function lvIsMine(model, x, me){
 /* ============================================================
    NAVIGATION
    ============================================================ */
-function goScoreboard(){ show('setup'); try { renderLivePanel(); } catch(e){} }
+function goScoreboard(){ show('setup'); try { renderLivePanel(); if (liveConn) liveRefresh(true); } catch(e){} }
 function goLive(){ show('liveHome'); renderLiveHome(); }
 var historyFrom = 'setup';
 function openHistory(from){ historyFrom = from || 'setup'; show('history'); renderHistory(); }
@@ -3797,7 +4083,7 @@ function renderLiveHome(){
 /* ============================================================
    HOST
    ============================================================ */
-function lhSaveLocal(){ if (LH) Store.set('starport_host_' + LH.code, { code:LH.code, hostPin:LH.hostPin, refPin:LH.refPin, d:LH.d, dirty:LH.dirty }); }
+function lhSaveLocal(){ if (LH) Store.set('starport_host_' + LH.code, { code:LH.code, hostPin:LH.hostPin, refPin:LH.refPin, d:LH.d, dirty:LH.dirty, pub:LH.pub||{} }); }
 function lhEmptyDraft(name, date, weapon, pistes){
   return { meta:{ name:name, date:date, weapon:weapon, pistes:pistes, schema:LIVE_SCHEMA, createdAt:Date.now(), locked:false }, fencers:{}, teams:{}, matches:{} };
 }
@@ -3825,13 +4111,12 @@ function lhCreateSheet(){
     '<label>Event name</label><input id="lcName" maxlength="60" placeholder="e.g. MUFC Club Night">' +
     '<div style="display:flex;gap:8px;margin-top:10px;"><div style="flex:1;"><label>Date</label><input id="lcDate" type="date" value="' + today + '"></div>' +
     '<div style="flex:1;"><label>Weapon</label><select id="lcWeapon">' + wOpts + '</select></div></div>' +
-    '<label style="margin-top:10px;">Number of pistes</label><input id="lcPistes" type="number" inputmode="numeric" min="1" max="40" value="4">' +
     '<div id="lcMsg" style="min-height:20px;font-size:14px;margin-top:10px;color:var(--muted);"></div>' +
     '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button>' +
     '<button class="btn btn-gold btn-block" id="lcBtn" onclick="lhCreate()">Create</button></div>');
 }
 function lhCreate(){
-  var name = sStr(lvVal('lcName'),60), date = sStr(lvVal('lcDate'),20), weapon = lvVal('lcWeapon'), pistes = sInt(lvVal('lcPistes'),1,40,4);
+  var name = sStr(lvVal('lcName'),60), date = sStr(lvVal('lcDate'),20), weapon = lvVal('lcWeapon'), pistes = 10;
   var msg = document.getElementById('lcMsg'), btn = document.getElementById('lcBtn');
   if (!name){ msg.textContent = 'Give the event a name.'; msg.style.color = '#f0c000'; return; }
   if (!LIVE_WEAPONS[weapon]) weapon = 'foil';
@@ -3849,7 +4134,7 @@ function lhCreate(){
     body['events/' + code + '/public'] = pub;
     liveFetch('PATCH', '/', body).then(function(r){
       if (r.ok){
-        LH = { code:code, hostPin:hp, refPin:rp, d:d, dirty:false, results:{}, tab:'fencers', sel:null, stream:null };
+        LH = { code:code, hostPin:hp, refPin:rp, d:d, dirty:false, pub:{}, results:{}, tab:'fencers', sel:null, stream:null };
         lhSaveLocal(); lvRemember(code, name, 'host');
         lvCloseSheet(); lhOpen(); lhShowPins(true);
         return;
@@ -3919,7 +4204,7 @@ function lhAfterLogin(){ lhSaveLocal(); lvRemember(LH.code, LH.d.meta.name, 'hos
 function lhResume(code){
   var local = Store.get('starport_host_' + code, null);
   if (!local || !local.hostPin){ lhOpenSheet(); setTimeout(function(){ var c = document.getElementById('loCode'); if (c) c.value = code; }, 0); return; }
-  LH = { code:local.code, hostPin:local.hostPin, refPin:local.refPin||null, d:lhNormDraft(local.d), dirty:!!local.dirty, results:{}, tab:'fencers', sel:null, stream:null };
+  LH = { code:local.code, hostPin:local.hostPin, refPin:local.refPin||null, d:lhNormDraft(local.d), dirty:!!local.dirty, pub:local.pub||{}, results:{}, tab:'fencers', sel:null, stream:null };
   lhOpen();
   if (!LH.dirty) lhRefreshFromServer(true);
 }
@@ -3938,7 +4223,7 @@ function lhOpen(){
   show('liveHost');
   if (LH.stream) LH.stream.close();
   LH.stream = lvStream('/events/' + LH.code + '/public', function(tree){
-    if (!LH) return; LH.results = (tree && tree.results) || {}; lhScheduleRender();
+    if (!LH) return; LH.results = (tree && tree.results) || {}; LH.pub = {}; if (tree && tree.matches) Object.keys(tree.matches).forEach(function(k){ LH.pub[k] = 1; }); lhScheduleRender();
   }, function(st){ if (LH){ LH.net = st; lhRenderBar(); } });
   lhRender();
 }
@@ -3982,7 +4267,7 @@ function lhPublish(after){
   liveFetch('PATCH', '/events/' + code, body).then(function(r){
     if (!LH || LH.code !== code) return;
     LH.busy = false;
-    if (r.ok){ LH.dirty = false; lhSaveLocal(); toast('✓ Published'); if (after) after(); }
+    if (r.ok){ LH.dirty = false; LH.pub = {}; Object.keys(pub.matches||{}).forEach(function(k){ LH.pub[k] = 1; }); lhSaveLocal(); toast('\u2713 Published'); if (after) after(); }
     else toast('Not published (' + liveReason(r) + '). Your changes are kept on this device.');
     lhRender();
   });
@@ -4005,7 +4290,7 @@ function lhRender(){
   document.getElementById('lhTitle').textContent = LH.d.meta.name;
   document.getElementById('lhCode').textContent = LH.code;
   lhRenderBar();
-  var tabs = [['fencers','Fencers'],['teams','Teams'],['bouts','Bouts'],['results','Results'],['share','Share']];
+  var tabs = [['fencers','Fencers'],['teams','Teams'],['bouts','Schedule'],['results','Results'],['share','Share']];
   document.getElementById('lhTabs').innerHTML = tabs.map(function(t){ return '<button class="lv-tab' + (LH.tab===t[0]?' on':'') + '" onclick="lhSetTab(\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('');
   var body = document.getElementById('lhBody');
   try {
@@ -4146,10 +4431,14 @@ function lhTeamsHtml(){
   var nFencers = fids.length;
   var html = '<div class="lv-card"><div class="lv-sub" style="margin-top:0;">Build balanced teams from skill levels. Everyone gets a team. You can move anyone afterwards.</div>' +
     (nFencers < 2 ? '<div class="live-banner" style="margin:0;">Add fencers first (Fencers tab), then build teams here.</div></div>' :
-    '<label>Fencers per team</label><div class="lv-seg" id="ltSize" data-v="' + (LH.teamSize||3) + '">' +
-      [2,3,4,5].map(function(z){ return '<button class="' + ((LH.teamSize||3)===z?'on':'') + '" onclick="lhSetTeamSize(' + z + ')">' + z + '</button>'; }).join('') + '</div>' +
-    '<div class="lv-sub">' + lhTeamPlanText(nFencers, LH.teamSize||3) + '</div>' +
-    '<button class="btn btn-gold btn-block" onclick="lhAutoTeams()">' + (tids.length ? 'Rebuild teams by skill' : 'Build teams by skill') + '</button></div>');
+    '<label>Fencers per team</label><div class="lv-seg" id="ltSize">' +
+      [[3,'3'],[4,'4'],['manual','Manual']].map(function(z){ return '<button class="' + ((LH.teamSize||3)===z[0]?'on':'') + '" onclick="lhSetTeamSize(' + (z[0]==='manual' ? '\'manual\'' : z[0]) + ')">' + z[1] + '</button>'; }).join('') + '</div>' +
+    (LH.teamSize === 'manual'
+      ? '<div class="lv-sub">Make empty teams, then tap each fencer and tap <b>Move here</b> on their team.</div>' +
+        '<div style="display:flex;gap:8px;align-items:flex-end;"><div style="flex:1;"><label>Number of teams</label><input id="ltN" type="number" inputmode="numeric" min="1" max="60" value="' + (tids.length || Math.max(2, Math.floor(nFencers/3))) + '"></div>' +
+        '<button class="btn btn-gold" style="flex:1.3;" onclick="lhManualTeams()">Create empty teams</button></div></div>'
+      : '<div class="lv-sub">' + lhTeamPlanText(nFencers, LH.teamSize||3) + '</div>' +
+        '<button class="btn btn-gold btn-block" onclick="lhAutoTeams()">' + (tids.length ? 'Rebuild teams by skill' : 'Build teams by skill') + '</button></div>'));
   if (LH.sel) html += '<div class="live-banner">Moving <b>' + esc((d.fencers[LH.sel]||{}).name) + '</b>: tap <b>Move here</b> on a team, or tap another fencer to swap. <button class="link" style="color:var(--gold);" onclick="lhTapFencer(\'' + LH.sel + '\')">Cancel</button></div>';
   tids.forEach(function(tid){
     var t = d.teams[tid], sum = 0;
@@ -4178,8 +4467,19 @@ function lhTeamPlanText(nF, size){
   return nF + ' fencers \u2192 <b>' + t + ' team' + (t>1?'s':'') + ' of ' + size + '</b>' + (extra ? ', and ' + extra + ' team' + (extra>1?'s':'') + ' get' + (extra>1?'':'s') + ' one extra fencer (' + (size+1) + ')' : '') + '. Everyone gets a team.';
 }
 function lhSetTeamSize(z){ LH.teamSize = z; lhRender(); }
+function lhManualTeams(){
+  var n = sInt(lvVal('ltN'),1,60,2), d = LH.d;
+  function make(){
+    var oldIds = lhTeamIds(), nt = {};
+    for (var i=0;i<n;i++){ var oid = oldIds[i]; nt[oid || lvId('t')] = { name:(oid && d.teams[oid].name) || ('Team ' + (i+1)), members:[], order:i+1 }; }
+    d.teams = nt; LH.sel = null; lhDirty();
+    toast(n + ' empty teams \u2014 tap a fencer, then Move here');
+  }
+  if (lhTeamIds().length) askConfirm('Replace the current teams with ' + n + ' empty teams? Everyone goes back to "Not in a team". Team names are kept.', make);
+  else make();
+}
 function lhAutoTeams(){
-  var d = LH.d, fids = Object.keys(d.fencers), size = LH.teamSize || 3;
+  var d = LH.d, fids = Object.keys(d.fencers), size = (LH.teamSize === 4) ? 4 : 3;
   if (fids.length < 2){ toast('Add fencers first'); return; }
   if (fids.length < size){ toast('Not enough fencers for a team of ' + size); return; }
   var n = Math.min(100, lhTeamCount(fids.length, size));
@@ -4239,10 +4539,11 @@ function lhDeleteTeam(tid){
 /* ---------- bouts (manual list) ---------- */
 function lhBoutsHtml(){
   var m = lhModel();
-  var html = '<div class="live-actions" style="margin:0 0 10px;"><button class="btn btn-gold" onclick="lhBoutSheet()">+ Add bout</button></div>';
-  if (!m.matches.length) return html + '<div class="lv-empty">No bouts yet. Tap Add bout to set up each bout, its piste and its order.</div>';
+  var html = '<div class="live-actions" style="margin:0 0 6px;"><button class="btn btn-gold" onclick="lhBoutSheet(null,\'team\')">+ Team match</button><button class="btn btn-gold" onclick="lhBoutSheet(null,\'ind\')">+ Individual bout</button></div>' +
+    '<div class="live-actions" style="margin:0 0 10px;"><button class="btn btn-ghost" onclick="lhGenSheet()">\u26A1 Generate schedule</button></div>';
+  if (!m.matches.length) return html + '<div class="lv-empty">Nothing scheduled yet. Add the matches for round 1 (you can add round 2 any time, even after publishing), then tap <b>Generate schedule</b> to spread them across pistes.</div>';
   lvPistesUsed(m.matches).forEach(function(p){
-    var list = m.matches.filter(function(x){ return x.piste === p; });
+    var list = lvOnPiste(m, p);
     html += '<div class="section-head">' + (p ? 'Piste ' + p : 'No piste yet') + '</div>';
     list.forEach(function(x, i){
       html += '<div class="lh-bout">' + lvMatchRow(m, x, null, ' onclick="lhBoutSheet(\'' + x.id + '\')"') +
@@ -4268,8 +4569,8 @@ function lhBoutSheet(id, kindOverride){
   var pOpts = '<option value="0">No piste yet</option>';
   for (var p=1;p<=P;p++) pOpts += '<option value="' + p + '">Piste ' + p + '</option>';
   pOpts += '<option value="other">Other piste number\u2026</option>';
-  var html = '<div class="sheet-title">' + (x ? 'Edit bout' : 'Add bout') + '</div>';
-  if (!x) html += '<div class="lv-seg" style="margin-bottom:12px;"><button class="' + (kind==='ind'?'on':'') + '" onclick="lhBoutSheet(null,\'ind\')">Individual</button><button class="' + (kind==='team'?'on':'') + '" onclick="lhBoutSheet(null,\'team\')">Team</button></div>';
+  var noun = kind==='team' ? 'match' : 'bout';
+  var html = '<div class="sheet-title">' + (x ? 'Edit ' + noun : (kind==='team' ? 'Add team match' : 'Add individual bout')) + '</div>';
   if (kind === 'team'){
     var tOpts = '<option value="">Choose team</option>' + lhTeamIds().map(function(t){ return '<option value="' + t + '">' + esc(d.teams[t].name) + '</option>'; }).join('');
     if (!lhTeamIds().length) html += '<div class="live-banner">No teams yet. Build them in the Teams tab first.</div>';
@@ -4284,21 +4585,22 @@ function lhBoutSheet(id, kindOverride){
   }
   html += '<div style="display:flex;gap:8px;margin-top:10px;"><div style="flex:1;"><label>Piste</label><select id="lbP" onchange="lhPisteOther()">' + pOpts + '</select>' +
       '<input id="lbPx" type="number" inputmode="numeric" min="1" max="99" placeholder="Piste no." style="display:none;margin-top:6px;"></div>' +
-    '<div style="flex:1.3;"><label>Round</label><input id="lbR" maxlength="30" placeholder="e.g. Pool A, Round 1"></div></div>' +
+    '<div style="flex:1.3;"><label>Round</label>' + lhRoundField() + '</div></div>' +
     '<div style="display:flex;gap:8px;margin-top:10px;align-items:flex-end;"><div style="flex:1;"><label>Start time (optional)</label><input id="lbT" type="time"></div><div style="flex:1.3;" class="lv-sub">Shows on the viewers\u2019 schedule.</div></div>' +
-    '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button><button class="btn btn-gold btn-block" onclick="lhSaveBout(' + (id ? '\'' + id + '\'' : 'null') + ',\'' + kind + '\')">Save</button></div>';
+    '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button><button class="btn btn-gold btn-block" onclick="lhSaveBout(' + (id ? '\'' + id + '\'' : 'null') + ',\'' + kind + '\')">Save</button></div>' +
+    (x ? '' : '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lhSaveBout(null,\'' + kind + '\',true)">Save and add another ' + noun + '</button></div>');
   if (x){
     html += '<div class="sheet-row"><button class="btn btn-primary btn-block" onclick="lhOpenInScoreboard(\'' + id + '\')">⚔ Open in Scoreboard</button></div>' +
-      '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lhResultSheet(\'' + id + '\')">Enter or edit result</button></div>' +
-      '<div class="sheet-row"><button class="btn btn-ghost btn-block" style="color:var(--red2);border-color:rgba(231,76,60,.4);" onclick="lhDeleteBout(\'' + id + '\')">Delete bout</button></div>';
+      '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lhResultSheet(\'' + id + '\')">\uD83D\uDCDD Score sheet (enter or fix scores)</button></div>' +
+      '<div class="sheet-row"><button class="btn btn-ghost btn-block" style="color:var(--red2);border-color:rgba(231,76,60,.4);" onclick="lhDeleteBout(\'' + id + '\')">Delete ' + noun + '</button></div>';
   }
   lvSheet(html);
   if (x){
-    lhSetPisteField(x.piste||0); setVal('lbR', x.round||''); setVal('lbT', x.time||'');
+    lhSetPisteField(x.piste||0); lhSetRound(x.round||''); setVal('lbT', x.time||'');
     if (kind==='team'){ setVal('lbA', x.aRef||''); setVal('lbB', x.bRef||''); }
     else { setVal('lbFmt', x.fmt); setVal('lbA', x.aRef||''); setVal('lbB', x.bRef||''); if (!x.aRef) setVal('lbAn', x.teamA||''); if (!x.bRef) setVal('lbBn', x.teamB||''); }
   } else {
-    lhSetPisteField(sInt(Store.get('starport_lh_lastpiste', 1),0,99,1)); setVal('lbT', '');
+    lhSetPisteField(sInt(Store.get('starport_lh_lastpiste', 0),0,99,0)); lhSetRound(LH.lastRound || ''); setVal('lbT', '');
   }
 }
 function lhPisteListMax(){
@@ -4324,8 +4626,27 @@ function lhReadPiste(){
   if (lvVal('lbP') === 'other') return sInt(lvVal('lbPx'), 1, 99, -1);
   return sInt(lvVal('lbP'), 0, 99, 0);
 }
-function lhSaveBout(id, kind){
-  var d = LH.d, piste = lhReadPiste(), round = sStr(lvVal('lbR'),30);
+function lhRounds(){
+  var seen = {}, list = [];
+  Object.keys(LH.d.matches).forEach(function(k){ var r = LH.d.matches[k].round; if (r && !seen[r]){ seen[r] = 1; list.push(r); } });
+  return list.sort(function(a,b){ return a.localeCompare(b, undefined, {numeric:true}); });
+}
+function lhRoundField(){
+  var opts = '<option value="">No round</option>' + lhRounds().map(function(r){ return '<option value="' + escAttr(r) + '">' + esc(r) + '</option>'; }).join('') +
+    '<option value="__new">New round\u2026</option>';
+  return '<select id="lbRs" onchange="lhRoundPick()">' + opts + '</select><input id="lbR" maxlength="30" placeholder="e.g. Round 2" style="display:none;margin-top:6px;">';
+}
+function lhRoundPick(){ var nw = lvVal('lbRs') === '__new', i = document.getElementById('lbR'); if (i){ i.style.display = nw ? 'block' : 'none'; if (nw) setTimeout(function(){ try { i.focus(); } catch(e){} }, 30); } }
+function lhSetRound(r){
+  var sel = document.getElementById('lbRs'); if (!sel) return;
+  if (!r){ sel.value = lhRounds().length ? '' : '__new'; if (!lhRounds().length) setVal('lbR', 'Round 1'); lhRoundPick(); return; }
+  var has = false; for (var i=0;i<sel.options.length;i++) if (sel.options[i].value === r) has = true;
+  if (has) sel.value = r; else { sel.value = '__new'; setVal('lbR', r); }
+  lhRoundPick();
+}
+function lhReadRound(){ return lvVal('lbRs') === '__new' ? sStr(lvVal('lbR'),30) : sStr(lvVal('lbRs'),30); }
+function lhSaveBout(id, kind, again){
+  var d = LH.d, piste = lhReadPiste(), round = lhReadRound();
   if (piste < 0){ toast('Type a piste number from 1 to 99'); return; }
   var tm = String(lvVal('lbT') || ''); if (!/^([01]?\d|2[0-3]):[0-5]\d$/.test(tm)) tm = '';
   var x = id ? d.matches[id] : null;
@@ -4350,7 +4671,66 @@ function lhSaveBout(id, kind){
   d.matches[id || lvId('m')] = rec;
   if (oldPiste !== null && oldPiste !== piste) lhRenumber(oldPiste);
   Store.set('starport_lh_lastpiste', piste);
+  LH.lastRound = round;
+  lhDirty();
+  if (again){ lhBoutSheet(null, kind); toast('Saved \u2014 add the next one'); } else lvCloseSheet();
+}
+
+/* ---------- generate schedule: spread a round's matches across pistes ---------- */
+function lhGenSheet(){
+  var rounds = lhRounds();
+  if (!Object.keys(LH.d.matches).length){ toast('Add matches or bouts first'); return; }
+  var opts = '<option value="__all">Everything not finished</option>' + rounds.map(function(r){ return '<option value="' + escAttr(r) + '">' + esc(r) + '</option>'; }).join('') + '<option value="__none">Only those with no round</option>';
+  lvSheet('<div class="sheet-title">\u26A1 Generate schedule</div>' +
+    '<div class="lv-sub" style="margin-top:0;">Spreads the matches across your pistes so they run at the same time, and nobody fences twice in a row when it can be avoided. Finished matches are not moved. You can still change anything afterwards.</div>' +
+    '<label>Which matches</label><select id="lgR">' + opts + '</select>' +
+    '<div style="display:flex;gap:8px;margin-top:10px;"><div style="flex:1;"><label>From piste</label><input id="lgFrom" type="number" inputmode="numeric" min="1" max="99" value="1"></div>' +
+    '<div style="flex:1;"><label>To piste</label><input id="lgTo" type="number" inputmode="numeric" min="1" max="99" value="' + Math.max(1, Math.min(4, Object.keys(LH.d.matches).length)) + '"></div></div>' +
+    '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button><button class="btn btn-gold btn-block" onclick="lhGenerate()">Generate</button></div>');
+  if (LH.lastRound && rounds.indexOf(LH.lastRound) >= 0) setVal('lgR', LH.lastRound);
+}
+function lhGenerate(){
+  var d = LH.d, which = lvVal('lgR'), from = sInt(lvVal('lgFrom'),1,99,1), to = sInt(lvVal('lgTo'),1,99,from);
+  if (to < from){ var t = from; from = to; to = t; }
+  var pistes = []; for (var p=from;p<=to;p++) pistes.push(p);
+  var res = {}; Object.keys(LH.results||{}).forEach(function(k){ var r = lvCleanResult(LH.results[k]); if (r) res[k] = r; });
+  var ids = Object.keys(d.matches).filter(function(k){
+    var x = d.matches[k], r = res[k];
+    if (r && (r.closed || r.hasScore)) return false;               // never move finished or running matches
+    if (which === '__all') return true;
+    if (which === '__none') return !x.round;
+    return x.round === which;
+  });
+  if (!ids.length){ lvCloseSheet(); toast('Nothing to schedule in that selection'); return; }
+  ids.sort(function(a,b){ var A = d.matches[a], B = d.matches[b]; return ((A.order||0) - (B.order||0)) || ((A.piste||0) - (B.piste||0)); });
+  function who(x){ return x.fmt==='team' ? ['t:' + (x.aRef || x.teamA), 't:' + (x.bRef || x.teamB)] : ['f:' + (x.aRef || x.teamA), 'f:' + (x.bRef || x.teamB)]; }
+  // waves: each wave puts at most one match per piste; avoid the same fencer/team twice in a wave or in back-to-back waves
+  var left = ids.slice(), waves = [], prev = {};
+  while (left.length){
+    var wave = [], busy = {};
+    for (var pass=0; pass<2 && wave.length < pistes.length; pass++){
+      for (var i=0; i<left.length && wave.length < pistes.length; i++){
+        var x = d.matches[left[i]], w = who(x);
+        if (busy[w[0]] || busy[w[1]]) continue;
+        if (pass === 0 && (prev[w[0]] || prev[w[1]])) continue;     // first try: give everyone a rest
+        wave.push(left[i]); busy[w[0]] = busy[w[1]] = 1;
+      }
+      left = left.filter(function(k){ return wave.indexOf(k) < 0; });
+    }
+    if (!wave.length){ wave.push(left.shift()); }
+    waves.push(wave); prev = {}; wave.forEach(function(k){ var w = who(d.matches[k]); prev[w[0]] = prev[w[1]] = 1; });
+  }
+  // keep finished/other matches where they are; new ones go after them on each piste
+  var base = {};
+  pistes.forEach(function(p){ base[p] = 0; Object.keys(d.matches).forEach(function(k){ if (ids.indexOf(k) < 0 && (d.matches[k].piste||0) === p) base[p] = Math.max(base[p], d.matches[k].order||0); }); });
+  var oldPistes = {};
+  waves.forEach(function(wave, wi){
+    wave.forEach(function(k, si){ var x = d.matches[k]; oldPistes[x.piste||0] = 1; x.piste = pistes[si]; x.order = base[pistes[si]] + wi + 1; });
+  });
+  Object.keys(oldPistes).forEach(function(op){ op = +op; if (pistes.indexOf(op) < 0) lhRenumber(op); });
+  pistes.forEach(function(p2){ lhRenumber(p2); });
   lvCloseSheet(); lhDirty();
+  toast(ids.length + ' scheduled on Pistes ' + from + (to>from ? '\u2013' + to : '') + ' in ' + waves.length + ' rotation' + (waves.length>1?'s':'') + ' \u2014 tap Publish');
 }
 function lhDeleteBout(id){
   lvCloseSheet();
@@ -4365,7 +4745,9 @@ function lhOpenInScoreboard(id){
   var m = lhModel(), x = null;
   m.matches.forEach(function(y){ if (y.id === id) x = y; });
   if (!x){ toast('Bout not found'); return; }
-  liveConn = { code:LH.code, pin:LH.hostPin, eventName:m.meta.name, weapon:m.meta.weapon, pistes:m.meta.pistes, piste:x.piste, matches:m.matches, fetchedAt:Date.now() };
+  var pubR = lhBuildPublic(); pubR.results = LH.results || {};
+  var ev = liveCleanEvent(pubR);
+  liveConn = { code:LH.code, pin:LH.hostPin, eventName:m.meta.name, weapon:m.meta.weapon, pistes:m.meta.pistes, piste:x.piste, matches:(ev ? ev.matches : m.matches), fetchedAt:Date.now() };
   liveSaveConn();
   goScoreboard();
   liveLoadMatch(id);
@@ -4378,9 +4760,16 @@ function lhResultsHtml(){
     '<button class="btn btn-ghost btn-sm" onclick="lhToggleLock()">' + (m.meta.locked ? 'Unlock' : 'Lock') + '</button></div>' +
     '<div class="lv-sub" style="margin-bottom:0;">' + (m.meta.locked ? 'Referees can no longer upload. Unlock to allow changes.' : 'Referee uploads count straight away. Lock the event when it is finished.') + '</div></div>';
   html += lvStandingsHtml(m);
-  html += '<div class="section-head">All bouts</div>';
-  if (!m.matches.length) html += '<div class="lv-empty">No bouts yet.</div>';
-  m.matches.forEach(function(x){ html += lvMatchRow(m, x, null, ' onclick="lhResultSheet(\'' + x.id + '\')"'); });
+  if (!m.matches.length) return html + '<div class="lv-empty">Nothing scheduled yet.</div>';
+  var rounds = [], by = {};
+  lvRunningOrder(m).forEach(function(x){ var k = x.round || 'Other'; if (!by[k]){ by[k] = []; rounds.push(k); } by[k].push(x); });
+  rounds.sort(function(a,b){ return a.localeCompare(b, undefined, {numeric:true}); });
+  rounds.forEach(function(k){
+    var fin = by[k].filter(function(x){ return lvClosed(m, x); }).length;
+    html += '<div class="section-head">' + esc(k) + ' <span style="float:right;">' + fin + '/' + by[k].length + ' done</span></div>';
+    by[k].forEach(function(x){ html += lvMatchRow(m, x, null, ' onclick="lhResultSheet(\'' + x.id + '\')"', 'P' + (x.piste || '?')); });
+  });
+  html += '<div class="lv-sub">Tap any match to type in scores from a paper score sheet, or to fix a result.</div>';
   return html;
 }
 function lhToggleLock(){
@@ -4390,6 +4779,15 @@ function lhToggleLock(){
   lhPublish();
 }
 function lhResultSheet(id){
+  var x = LH.d.matches[id]; if (!x){ lvCloseSheet(); return; }
+  if (!LH.pub || !LH.pub[id]){ toast('Publish first \u2014 this match is not on Fencing Live yet'); return; }
+  if (LH.d.meta.locked){ toast('Unlock the event (Results tab) to change scores'); return; }
+  var m = lhModel(), mx = lvFindMatch(m, id), r = m.results[id];
+  if (!mx) return;
+  lvManualSheet({ code:LH.code, pin:LH.hostPin, by:'Host', match:mx, result:(r && r.hasScore) ? r : null,
+    extraHtml: r ? '<div class="sheet-row"><button class="btn btn-ghost btn-block" style="color:var(--red2);border-color:rgba(231,76,60,.4);" onclick="lhClearResult(\'' + id + '\')">' + (r.cancelled ? 'Undo withdrawal (back in the schedule)' : (r.deferred ? 'Put back in its original place' : 'Clear result')) + '</button></div>' : '' });
+}
+function lhResultSheetOld(id){
   var x = LH.d.matches[id]; if (!x){ lvCloseSheet(); return; }
   var m = lhModel(), mx = null; m.matches.forEach(function(y){ if (y.id===id) mx = y; });
   var r = m.results[id];
@@ -4426,7 +4824,7 @@ function lhSaveResult(id){
 function lhClearResult(id){
   if (LH.d.meta.locked){ toast('Unlock the event to change results'); return; }
   lvCloseSheet();
-  askConfirm('Clear this result?', function(){ lhWriteResult(id, { status:'void', final:false, matchId:id, updatedAt:Date.now() }); });
+  askConfirm('Clear this? The match goes back to upcoming.', function(){ lhWriteResult(id, { status:'void', final:false, matchId:id, updatedAt:Date.now() }); });
 }
 
 /* ---------- share ---------- */
@@ -4470,7 +4868,6 @@ function lhSettingsSheet(){
     '<label>Event name</label><input id="lsName" maxlength="60" value="' + escAttr(LH.d.meta.name) + '">' +
     '<div style="display:flex;gap:8px;margin-top:10px;"><div style="flex:1;"><label>Date</label><input id="lsDate" type="date" value="' + escAttr(LH.d.meta.date||'') + '"></div>' +
     '<div style="flex:1;"><label>Weapon</label><select id="lsWeapon">' + wOpts + '</select></div></div>' +
-    '<label style="margin-top:10px;">Number of pistes at the venue</label><input id="lsPistes" type="number" inputmode="numeric" min="1" max="99" value="' + (LH.d.meta.pistes||1) + '">' +
     '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button><button class="btn btn-gold btn-block" onclick="lhSaveSettings()">Save</button></div>' +
     '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lhShowPins(false)">Show event code &amp; PINs</button></div>' +
     '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet();lhLeave()">Close event on this device</button></div>' +
@@ -4480,7 +4877,7 @@ function lhSettingsSheet(){
 function lhSaveSettings(){
   var name = sStr(lvVal('lsName'),60);
   if (!name){ toast('Enter an event name'); return; }
-  var pistes = sInt(lvVal('lsPistes'),1,40,LH.d.meta.pistes||1);
+  var pistes = LH.d.meta.pistes || 10;
   var w = lvVal('lsWeapon'); if (!LIVE_WEAPONS[w]) w = LH.d.meta.weapon;
   LH.d.meta.name = name; LH.d.meta.date = sStr(lvVal('lsDate'),20); LH.d.meta.weapon = w; LH.d.meta.pistes = pistes;
   lvCloseSheet(); lvRemember(LH.code, name, 'host'); lhDirty();
@@ -4558,24 +4955,104 @@ function lvvRender(){
   } catch(e){ html += '<div class="lv-empty">Some event data could not be shown.</div>'; }
   body.innerHTML = html;
 }
+function lvFindMatch(m, id){ for (var i=0;i<m.matches.length;i++) if (m.matches[i].id===id) return m.matches[i]; return null; }
+function lvCurrentModel(){
+  if (LV && document.getElementById('liveView').classList.contains('on')) return lvModel(LV.pub, LV.res);
+  if (LH) return lhModel();
+  return null;
+}
+function lvMatchDetail(id){
+  var m = lvCurrentModel(); if (!m) return;
+  var x = lvFindMatch(m, id); if (!x) return;
+  var st = lvMatchStatus(m, x), r = m.results[id];
+  var html = '<div class="sheet-title">' + (x.fmt==='team' ? 'Team match' : 'Bout') + '</div>' +
+    '<div class="lv-sub" style="margin-top:0;">' + esc([x.round, x.piste ? 'Piste ' + x.piste : '', x.time ? '⏰ ' + x.time : '', fmtNameById(x.fmt)].filter(Boolean).join(' · ')) + '</div>' +
+    '<div class="lv-detail-score"><div><b>' + esc(x.teamA||'TBC') + '</b><span>' + (st.r ? st.r.scoreA : '–') + '</span></div>' +
+    '<div><b>' + esc(x.teamB||'TBC') + '</b><span>' + (st.r ? st.r.scoreB : '–') + '</span></div></div>' +
+    '<div style="text-align:center;margin:4px 0 10px;"><span class="lr-chip ' + st.cls + '">' + st.txt + '</span>' + (r && r.reason ? ' <span class="lv-sub">' + esc(r.reason) + '</span>' : '') + '</div>';
+  if (r && r.bouts && r.bouts.length){
+    html += '<div class="lv-relay"><div class="lr-h"><span>#</span><span>' + esc(x.teamA||'A') + '</span><span>Score</span><span>' + esc(x.teamB||'B') + '</span></div>';
+    var ca = 0, cb = 0;
+    r.bouts.forEach(function(b){
+      var played = b.status==='done' || b.ptsA || b.ptsB;
+      ca += b.ptsA; cb += b.ptsB;
+      html += '<div class="lr-r' + (played ? '' : ' dim') + '"><span>' + b.n + '</span><span>' + esc(b.fencerA||'—') + '</span><span>' + (played ? ca + '–' + cb : '') + '</span><span>' + esc(b.fencerB||'—') + '</span></div>';
+    });
+    html += '</div>';
+  } else if (x.fmt==='team' && (x.rosterA.length || x.rosterB.length)){
+    html += '<div class="lv-sub">' + esc(x.teamA) + ': ' + esc(x.rosterA.map(function(f){ return f.name; }).join(', ')) + '<br>' + esc(x.teamB) + ': ' + esc(x.rosterB.map(function(f){ return f.name; }).join(', ')) + '</div>';
+  }
+  if (r && r.referee) html += '<div class="lv-sub">Referee: ' + esc(r.referee) + '</div>';
+  html += '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Close</button>' +
+    '<button class="btn btn-gold btn-block" onclick="lvMatchPicture(\'' + id + '\')">📥 Save as picture</button></div>';
+  lvSheet(html);
+}
+function lvMatchPicture(id){
+  try {
+    var m = lvCurrentModel(), x = lvFindMatch(m, id); if (!x) return;
+    var st = lvMatchStatus(m, x), r = m.results[id], bouts = (r && r.bouts) || [];
+    var W = 1080, H = 640 + (bouts.length ? 120 + bouts.length * 78 : 0), FONT = 'Helvetica,Arial,sans-serif';
+    var c = document.createElement('canvas'); c.width = W; c.height = H;
+    var ctx = c.getContext('2d');
+    ctx.fillStyle = '#0a1628'; ctx.fillRect(0,0,W,H);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#c9a227'; ctx.font = '700 34px ' + FONT; ctx.fillText('STARPORT FENCING LIVE', W/2, 78);
+    ctx.fillStyle = '#7a8a9e'; ctx.font = '500 28px ' + FONT; ctx.fillText((m.meta.name || '') + (m.meta.date ? '  ·  ' + m.meta.date : ''), W/2, 124);
+    ctx.font = '500 26px ' + FONT; ctx.fillText([x.round, x.piste ? 'Piste ' + x.piste : '', fmtNameById(x.fmt)].filter(Boolean).join('  ·  '), W/2, 166);
+    var wA = st.r && st.r.final && st.r.scoreA > st.r.scoreB, wB = st.r && st.r.final && st.r.scoreB > st.r.scoreA;
+    ctx.font = '700 46px ' + FONT;
+    ctx.fillStyle = wA ? '#c9a227' : '#f0eeea'; ctx.fillText(x.teamA || 'TBC', W/4, 270);
+    ctx.fillStyle = wB ? '#2e7dd4' : '#f0eeea'; ctx.fillText(x.teamB || 'TBC', 3*W/4, 270);
+    ctx.font = '700 150px ' + FONT;
+    ctx.fillStyle = wA ? '#c9a227' : '#f0eeea'; ctx.fillText(st.r ? String(st.r.scoreA) : '–', W/4, 440);
+    ctx.fillStyle = wB ? '#2e7dd4' : '#f0eeea'; ctx.fillText(st.r ? String(st.r.scoreB) : '–', 3*W/4, 440);
+    ctx.fillStyle = '#7a8a9e'; ctx.font = '600 30px ' + FONT; ctx.fillText(st.txt.toUpperCase(), W/2, 520);
+    if (r && r.referee){ ctx.font = '500 24px ' + FONT; ctx.fillText('Referee: ' + r.referee, W/2, 562); }
+    if (bouts.length){
+      var y = 650; ctx.strokeStyle = '#1e2e3e'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(80,y-40); ctx.lineTo(W-80,y-40); ctx.stroke();
+      var ca = 0, cb = 0;
+      bouts.forEach(function(b){
+        ca += b.ptsA; cb += b.ptsB;
+        var played = b.status==='done' || b.ptsA || b.ptsB;
+        ctx.font = '500 24px ' + FONT; ctx.fillStyle = '#5a6069'; ctx.textAlign = 'left'; ctx.fillText('B' + b.n, 90, y);
+        ctx.font = '600 30px ' + FONT; ctx.fillStyle = '#f0eeea';
+        ctx.fillText(b.fencerA || '—', 170, y);
+        ctx.textAlign = 'right'; ctx.fillText(b.fencerB || '—', W-90, y);
+        ctx.textAlign = 'center'; ctx.fillStyle = played ? '#c9a227' : '#3a4a5e'; ctx.font = '700 32px ' + FONT;
+        ctx.fillText(played ? ca + ' – ' + cb : '·', W/2, y);
+        y += 78;
+      });
+    }
+    ctx.textAlign = 'center'; ctx.fillStyle = '#3a4a5e'; ctx.font = '500 22px ' + FONT;
+    ctx.fillText('Starport Fencing · ' + new Date().toLocaleDateString(), W/2, H - 28);
+    shareCanvasAsImage(c, 'starport-' + String((x.teamA||'a') + '-v-' + (x.teamB||'b')).replace(/[^A-Za-z0-9]+/g,'-') + '.png');
+  } catch(e){ toast('Could not create the picture'); }
+}
 function lvSetMode(v){ if (LV){ LV.mode = v; Store.set('starport_lv_mode', v); lvvRender(); } }
 /* Running order across all pistes: by start time if set, then each piste's order,
    interleaved (1st bout on every piste, then 2nd, ...), like a strip schedule. */
 function lvRunningOrder(m){
+  // position of each bout within its piste (after moves), then interleave pistes
+  var pos = {};
+  lvPistesUsed(m.matches).forEach(function(p){ lvOnPiste(m, p).forEach(function(x, i){ pos[x.id] = i; }); });
   var list = m.matches.slice();
   list.sort(function(a,b){
-    var ta = a.time || '99:99', tb = b.time || '99:99';
+    var ra = m.results[a.id], rb = m.results[b.id];
+    var da = ra && ra.deferred ? 1 : 0, db = rb && rb.deferred ? 1 : 0;
+    var ta = da ? '99:98' : (a.time || '99:99'), tb = db ? '99:98' : (b.time || '99:99');
     if (ta !== tb) return ta < tb ? -1 : 1;
-    if (a.order !== b.order) return a.order - b.order;
+    if (pos[a.id] !== pos[b.id]) return pos[a.id] - pos[b.id];
     return (a.piste||1000) - (b.piste||1000);
   });
   return list;
 }
+function lvRunningIndex(m, x){ var l = lvRunningOrder(m); for (var i=0;i<l.length;i++) if (l[i].id===x.id) return i; return 9999; }
+function lvTapAttr(id){ return ' onclick="lvMatchDetail(\'' + id + '\')"'; }
 function lvScheduleHtml(m, me){
   if (!m.matches.length) return '<div class="lv-empty">The host has not published any bouts yet.</div>';
   var mode = LV.mode || Store.get('starport_lv_mode', 'now');
   if (['now','piste','round','all'].indexOf(mode) < 0) mode = 'now';
-  var done = m.matches.filter(function(x){ var r = m.results[x.id]; return r && r.final; }).length;
+  var done = m.matches.filter(function(x){ return lvClosed(m, x); }).length;
   var html = '<div class="lv-seg lv-mode">' + [['now','Now'],['piste','By piste'],['round','By round'],['all','Full schedule']].map(function(t){
       return '<button class="' + (mode===t[0]?'on':'') + '" onclick="lvSetMode(\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('') + '</div>' +
     '<div class="lv-progress"><span style="width:' + Math.round(100*done/m.matches.length) + '%"></span></div>' +
@@ -4586,27 +5063,27 @@ function lvScheduleHtml(m, me){
     var rounds = [], by = {};
     lvRunningOrder(m).forEach(function(x){ var k = x.round || 'Other bouts'; if (!by[k]){ by[k] = []; rounds.push(k); } by[k].push(x); });
     rounds.forEach(function(k){
-      var fin = by[k].filter(function(x){ var r = m.results[x.id]; return r && r.final; }).length;
+      var fin = by[k].filter(function(x){ return lvClosed(m, x); }).length;
       html += '<div class="section-head">' + esc(k) + ' <span style="float:right;">' + fin + '/' + by[k].length + '</span></div>';
-      by[k].forEach(function(x){ html += lvMatchRow(m, x, me, '', 'P' + (x.piste || '?')); });
+      by[k].forEach(function(x){ html += lvMatchRow(m, x, me, lvTapAttr(x.id), 'P' + (x.piste || '?')); });
     });
     return html;
   }
-  lvRunningOrder(m).forEach(function(x, i){ html += lvMatchRow(m, x, me, '', i+1, 'Piste ' + (x.piste || 'TBC')); });
+  lvRunningOrder(m).forEach(function(x, i){ html += lvMatchRow(m, x, me, lvTapAttr(x.id), i+1, 'Piste ' + (x.piste || 'TBC')); });
   return html;
 }
 function lvNowHtml(m, me){
   var html = '';
   lvPistesUsed(m.matches).forEach(function(p){
-    var list = m.matches.filter(function(x){ return x.piste===p; });
-    var left = list.filter(function(x){ var r = m.results[x.id]; return !(r && r.final); });
+    var list = lvOnPiste(m, p);
+    var left = list.filter(function(x){ return !lvClosed(m, x); });
     var title = p ? 'Piste ' + p : 'Piste to be confirmed';
     html += '<div class="lv-card lv-now"><div class="lv-team-head"><span class="lv-team-name">' + title + '</span><span class="lr-chip">' + (list.length - left.length) + '/' + list.length + ' done</span></div>';
     if (!left.length) html += '<div class="lv-sub" style="margin:0;">\u2705 All bouts finished</div>';
     else {
       var cur = left[0], r = m.results[cur.id];
-      html += '<div class="lv-now-tag">' + (r ? '\u25CF FENCING NOW' : 'UP NEXT') + '</div>' + lvMatchRow(m, cur, me);
-      if (left[1]) html += '<div class="lv-now-tag dim">ON DECK</div>' + lvMatchRow(m, left[1], me);
+      html += '<div class="lv-now-tag">' + (r && r.hasScore ? '● FENCING NOW' : 'UP NEXT') + '</div>' + lvMatchRow(m, cur, me, lvTapAttr(cur.id));
+      if (left[1]) html += '<div class="lv-now-tag dim">ON DECK</div>' + lvMatchRow(m, left[1], me, lvTapAttr(left[1].id));
       if (left.length > 2) html += '<div class="lv-sub" style="margin:4px 0 0;">+ ' + (left.length - 2) + ' more on this piste</div>';
     }
     html += '</div>';
@@ -4617,20 +5094,22 @@ function lvBoutsByPiste(m, me){
   if (!m.matches.length) return '<div class="lv-empty">The host has not published any bouts yet.</div>';
   var html = '';
   lvPistesUsed(m.matches).forEach(function(p){
-    var list = m.matches.filter(function(x){ return x.piste===p; });
+    var list = lvOnPiste(m, p);
     html += '<div class="section-head">' + (p ? 'Piste ' + p : 'Piste to be confirmed') + '</div>';
-    list.forEach(function(x){ html += lvMatchRow(m, x, me); });
+    list.forEach(function(x){ html += lvMatchRow(m, x, me, lvTapAttr(x.id)); });
   });
   return html;
 }
 function lvNextBoutHtml(m, me){
-  var mine = m.matches.filter(function(x){ return lvIsMine(m, x, me) && !(m.results[x.id] && m.results[x.id].final); });
+  var mine = m.matches.filter(function(x){ return lvIsMine(m, x, me) && !lvClosed(m, x); });
   if (!mine.length){
     var any = m.matches.some(function(x){ return lvIsMine(m, x, me); });
     return '<div class="lv-next">' + (any ? '✅ All your bouts are finished.' : 'No bouts for ' + esc(me) + ' yet.') + '</div>';
   }
-  var x = mine[0], r = m.results[x.id];
-  var ahead = m.matches.filter(function(y){ return y.piste===x.piste && y.order < x.order && !(m.results[y.id] && m.results[y.id].final); }).length;
+  mine.sort(function(a,b){ return lvRunningIndex(m, a) - lvRunningIndex(m, b); });
+  var x = mine[0], r = m.results[x.id]; if (r && !r.hasScore) r = null;
+  var q = lvOnPiste(m, x.piste).filter(function(y){ return !lvClosed(m, y); });
+  var ahead = Math.max(0, q.indexOf(x));
   var opp = (x.teamA===me || (x.fmt==='team' && x.rosterA.some(function(f){ return f.name===me; }))) ? x.teamB : x.teamA;
   var when = r ? 'In progress now' : (ahead===0 ? 'Up next' : ahead + ' bout' + (ahead>1?'s':'') + ' before yours');
   return '<div class="lv-next"><div class="lv-next-tag">YOUR NEXT BOUT</div><div class="lv-next-main">' + (x.piste ? 'Piste ' + x.piste : 'Piste TBC') + ' · ' + when + '</div>' +
@@ -4658,7 +5137,7 @@ function lvTeamsViewHtml(m, me){
 }
 function lvMyRows(m, me){
   return m.matches.filter(function(x){ return lvIsMine(m, x, me); }).map(function(x){
-    var r = m.results[x.id];
+    var r = m.results[x.id]; if (r && !r.hasScore) r = null;
     var onA = x.teamA===me || (x.fmt==='team' && x.rosterA.some(function(f){ return f.name===me; }));
     var my = r ? (onA ? r.scoreA : r.scoreB) : null, their = r ? (onA ? r.scoreB : r.scoreA) : null;
     return { x:x, opp:onA ? x.teamB : x.teamA, my:my, their:their, final:!!(r && r.final), won:!!(r && r.final && my > their) };
