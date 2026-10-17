@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- Starport Fencing — Copyright (c) 2026 Portus Stellae Lab (ABN-registered business name). All rights reserved.
+     No part of this software may be copied, modified, distributed or published, including in any app store,
+     without written permission from Portus Stellae Lab. -->
+<meta name="author" content="Portus Stellae Lab">
+<meta name="copyright" content="© 2026 Portus Stellae Lab. All rights reserved.">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -347,6 +352,7 @@ label{display:block;font-size:12px;font-weight:500;color:var(--muted);text-trans
 .lt-medals button{width:30px;height:30px;border-radius:7px;font-size:16px;opacity:.25;filter:grayscale(1);}
 .lt-medals button.on{opacity:1;filter:none;background:rgba(201,162,39,.2);}
 .lt-row.medal-g{background:rgba(201,162,39,.16);} .lt-row.medal-s{background:rgba(200,200,210,.10);} .lt-row.medal-b{background:rgba(205,127,50,.14);}
+.copy-line{text-align:center;font-size:11px;color:var(--muted);opacity:.7;margin:18px 0 6px;line-height:1.5;}
 .lv-x{width:32px;height:32px;border-radius:8px;color:var(--muted);font-size:20px;flex-shrink:0;}
 .held-cards-line{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin:2px 0 8px;font-family:'DM Mono',monospace;min-height:15px;}
 
@@ -468,6 +474,15 @@ label{display:block;font-size:12px;font-weight:500;color:var(--muted);text-trans
 #breakTimeSheet{z-index:300;}
 #exitSaveSheet{z-index:80;}
 #confirmSheet{z-index:320;}
+.lo-h,.lo-r{display:grid;grid-template-columns:22px 1fr 30px 1fr;gap:6px;align-items:center;}
+.lo-h{font-size:11px;color:var(--muted);margin:8px 0 4px;}
+.lo-h span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lo-r{margin-bottom:5px;}
+.lo-r>span:first-child{color:var(--muted);font-family:'DM Mono',monospace;font-size:12px;text-align:center;}
+.lo-r select,.lo-swap select{padding:7px 6px;font-size:13px;min-width:0;width:100%;}
+.lo-t{color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;text-align:center;}
+.lo-swap{display:grid;grid-template-columns:1fr 18px 1fr auto;gap:6px;align-items:center;margin-top:6px;}
+.lo-swap span{text-align:center;color:var(--muted);}
 #viewMatchSheet{z-index:70;}
 
 .set-row{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);}
@@ -506,7 +521,7 @@ label{display:block;font-size:12px;font-weight:500;color:var(--muted);text-trans
       <div class="hc-desc">Host an event or follow one live. Needs internet.</div>
     </button>
   </div>
-  <div class="link-row"><button class="link" onclick="openHistory('home')">Saved matches</button></div>
+  <div class="copy-line">© 2026 Portus Stellae Lab. All rights reserved.<br>Starport Fencing</div>
 </section>
 
 <section class="view" id="liveHome">
@@ -601,7 +616,7 @@ label{display:block;font-size:12px;font-weight:500;color:var(--muted);text-trans
   </div>
 
   <button class="btn btn-gold btn-block" onclick="startMatch()" style="margin-top:6px;">Start match</button>
-  <div class="link-row"><button class="link" onclick="openHistory('setup')">Saved matches</button></div>
+  <div class="link-row"><button class="link" onclick="openHistory('setup')">Saved matches</button> &nbsp;·&nbsp; <button class="link" onclick="openImportBoutHelp()">Got a bout link?</button></div>
 </section>
 
 <!-- ============================ SCORING =========================== -->
@@ -614,6 +629,7 @@ label{display:block;font-size:12px;font-weight:500;color:var(--muted);text-trans
 
   <div class="match-format-top" id="formatLineTop"></div>
   <div class="live-line" id="liveLine" style="display:none;"></div>
+  <div id="liveHandRow" style="display:none;text-align:center;margin:-2px 0 8px;"><button class="btn btn-ghost btn-sm" onclick="liveHandOver()">🤝 Hand over to another referee</button></div>
   <div id="reviewBanner" style="display:none;"></div>
 
   <div class="name-row">
@@ -721,7 +737,8 @@ label{display:block;font-size:12px;font-weight:500;color:var(--muted);text-trans
   <div class="sheet-in">
     <div class="champion-banner" id="viewMatchBanner"></div>
     <div id="viewMatchStats" style="color:var(--muted);font-size:12px;font-family:'DM Mono',monospace;margin-bottom:10px;text-align:center;"></div>
-    <div class="sheet-title" style="font-size:16px;margin-bottom:6px;">Scoring timeline</div>
+    <div class="sheet-title" style="font-size:16px;margin-bottom:2px;">Scoring timeline</div>
+    <div style="color:var(--muted);font-size:12px;line-height:1.45;margin-bottom:8px;">Every touch with the time on the clock. Watching your video? Find the moment by its clock time and type a note under it — notes stay on this phone.</div>
     <div id="viewMatchTimeline" style="max-height:44vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-right:10px;scrollbar-gutter:stable;"></div>
     <div class="sheet-row" style="margin-top:12px;">
       <button class="btn btn-ghost btn-block" onclick="closeSheet('viewMatchSheet')">Close</button>
@@ -729,6 +746,9 @@ label{display:block;font-size:12px;font-weight:500;color:var(--muted);text-trans
     </div>
     <div class="sheet-row" id="viewUploadRow" style="display:none;">
       <button class="btn btn-ghost btn-block" id="viewUploadBtn" onclick="uploadViewedMatch()">&#11014; Upload to Starport Live</button>
+    </div>
+    <div class="sheet-row">
+      <button class="btn btn-gold btn-block" onclick="shareBoutLink()">&#128279; Send this bout to the fencers</button>
     </div>
     <div class="sheet-row">
       <button class="btn btn-primary btn-block" onclick="exportViewedTimeline()">&#128196; Export timeline &amp; notes</button>
@@ -850,6 +870,8 @@ label{display:block;font-size:12px;font-weight:500;color:var(--muted);text-trans
     <input id="liveCodeIn" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="e.g. KX7P2Q">
     <label style="display:block;margin-top:10px;">Referee PIN</label>
     <input id="livePinIn" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN from the host">
+    <label style="display:block;margin-top:10px;">Your name (referee)</label>
+    <input id="liveRefIn" maxlength="40" autocomplete="name" placeholder="Shown on every bout you referee">
     <div id="liveConnectMsg" style="min-height:20px;font-size:14px;margin-top:10px;color:var(--muted);"></div>
     <div class="sheet-row">
       <button class="btn btn-ghost btn-block" onclick="closeSheet('liveConnectSheet')">Cancel</button>
@@ -898,6 +920,8 @@ label{display:block;font-size:12px;font-weight:500;color:var(--muted);text-trans
 
     <div class="sheet-row">
       <button class="btn btn-gold btn-block" onclick="closeSheet('settingsSheet')">Done</button>
+    </div>
+    <div class="copy-line" style="margin-top:14px;">© 2026 Portus Stellae Lab. All rights reserved.
     </div>
   </div>
 </div>
@@ -1290,6 +1314,7 @@ function startMatch(){
   viewBoutIdx = null; resetPas();
   sw = false;
   timer = { seconds: selectedFmt.mins*60, running:false };
+  try { liveApplyResume(); } catch(e){}
   document.getElementById('scheduleWrap').style.display = M.relay ? 'block' : 'none';
   show('scoring');
   renderAll();
@@ -2462,7 +2487,7 @@ function renderHistory(){
           ' <span style="color:var(--muted);">v</span> ' +
           '<span style="color:' + (bw?'var(--blue2)':'var(--white)') + '">' + esc(m.teamB) + '</span>' +
         '</div>' +
-        '<div style="font-size:12px;color:var(--muted);margin-top:3px;">' + esc(m.label||m.fmtName) + ' \u00b7 ' + date + '</div>' +
+        '<div style="font-size:12px;color:var(--muted);margin-top:3px;">' + esc(m.label||m.fmtName) + ' \u00b7 ' + date + (m.handedOver ? ' \u00b7 🤝 handed over' : '') + (m.imported ? ' \u00b7 📥 from ' + esc(m.referee || 'referee') : '') + '</div>' +
       '</div>' +
       '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:23px;flex-shrink:0;">' +
         '<span style="color:' + (aw?'var(--gold)':'var(--muted)') + '">' + m.scoreA + '</span>' +
@@ -2550,7 +2575,7 @@ function renderTimeline(rec){
         '<span style="font-family:\'DM Mono\',monospace;color:var(--white);flex-shrink:0;">' + e.sA + '\u2013' + e.sB + '</span>' +
       '</div>' +
       (ctx ? '<div style="font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;margin-top:1px;">' + ctx + '</div>' : '') +
-      '<input class="note-input" placeholder="Add a note\u2026" value="' + escAttr(e.note||'') + '" oninput="updateLogNote(' + rec.id + ',' + i + ',this.value)">' +
+      '<input class="note-input" placeholder="Your note on this touch\u2026" value="' + escAttr(e.note||'') + '" oninput="updateLogNote(' + rec.id + ',' + i + ',this.value)">' +
     '</div>';
   }
   el.innerHTML = html;
@@ -2564,6 +2589,160 @@ function updateLogNote(matchId, idx, val){
       return;
     }
   }
+}
+
+/* ============================================================
+   SEND A BOUT TO THE FENCERS (link with the bout inside it)
+   The whole bout — score, cards, every touch with its clock time —
+   is packed into the link itself (after the #, which browsers never
+   send to a server). Nothing is uploaded. Opening the link in
+   Starport Fencing saves a copy in that person's Saved matches,
+   where they add their own notes while rewatching video.
+   ============================================================ */
+var BOUT_KEYS = ['weapon','weaponName','fmtId','fmtName','relay','label','teamA','teamB','countryA','clubA','countryB','clubB','referee','scoreA','scoreB','winner','status',
+  'periodsTotal','target','bouts','rosterA','rosterB','cardsA','cardsB','pA','pB','reviewsUsedA','reviewsUsedB','scoreLog','savedAt'];
+function b64uEnc(bytes){ var s = ''; for (var i=0;i<bytes.length;i++) s += String.fromCharCode(bytes[i]); return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function b64uDec(t){ t = String(t).replace(/-/g,'+').replace(/_/g,'/'); while (t.length % 4) t += '='; var s = atob(t), b = new Uint8Array(s.length); for (var i=0;i<s.length;i++) b[i] = s.charCodeAt(i); return b; }
+function boutPack(rec, withNotes){
+  var o = { v:1 };
+  BOUT_KEYS.forEach(function(k){ if (rec[k] !== undefined && rec[k] !== null && rec[k] !== '') o[k] = rec[k]; });
+  o.scoreLog = (rec.scoreLog||[]).map(function(e){
+    var x = { s:e.side, k:e.kind && e.kind!=='touch' ? e.kind : undefined, a:e.sA, b:e.sB, c:e.clock, n:e.boutNum || undefined, p:e.period || undefined, f:e.fencer || undefined };
+    if (withNotes && e.note) x.t = e.note;
+    return x;
+  });
+  if (o.bouts) o.bouts = o.bouts.map(function(b){ return { boutNum:b.boutNum, fencerA:b.fencerA, fencerB:b.fencerB, ptsA:b.ptsA, ptsB:b.ptsB, status:b.status, cards:b.cards||[] }; });
+  if (o.rosterA) o.rosterA = o.rosterA.map(function(r){ return { name:r.name||'', club:r.club||'', country:r.country||'' }; });
+  if (o.rosterB) o.rosterB = o.rosterB.map(function(r){ return { name:r.name||'', club:r.club||'', country:r.country||'' }; });
+  var json = JSON.stringify(o);
+  var bytes = new TextEncoder().encode(json);
+  if (typeof CompressionStream === 'function'){
+    try {
+      var cs = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+      return new Response(cs).arrayBuffer().then(function(ab){ return 'z' + b64uEnc(new Uint8Array(ab)); }, function(){ return 'j' + b64uEnc(bytes); });
+    } catch(e){}
+  }
+  return Promise.resolve('j' + b64uEnc(bytes));
+}
+function boutUnpack(t){
+  t = String(t||'');
+  var kind = t.charAt(0), bytes = b64uDec(t.slice(1));
+  var p;
+  if (kind === 'z'){
+    if (typeof DecompressionStream !== 'function') return Promise.reject(new Error('old'));
+    p = new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer().then(function(ab){ return new Uint8Array(ab); });
+  } else if (kind === 'j') p = Promise.resolve(bytes);
+  else return Promise.reject(new Error('bad'));
+  return p.then(function(b){
+    var o = JSON.parse(new TextDecoder().decode(b));
+    if (!o || o.v !== 1 || typeof o.teamA !== 'string') throw new Error('bad');
+    return boutClean(o);
+  });
+}
+function boutClean(o){
+  var r = {};
+  ['weapon','weaponName','fmtId','fmtName','label','teamA','teamB','countryA','clubA','countryB','clubB','referee','winner','status'].forEach(function(k){ if (o[k] != null) r[k] = sStr(o[k], 80); });
+  r.relay = !!o.relay; r.scoreA = sInt(o.scoreA,0,999,0); r.scoreB = sInt(o.scoreB,0,999,0);
+  r.periodsTotal = sInt(o.periodsTotal,1,9,1); r.target = sInt(o.target,1,999,15);
+  r.reviewsUsedA = sInt(o.reviewsUsedA,0,99,0); r.reviewsUsedB = sInt(o.reviewsUsedB,0,99,0);
+  function cards(c){ return { y:sInt(c && c.y,0,99,0), r:sInt(c && c.r,0,99,0) }; }
+  r.cardsA = cards(o.cardsA); r.cardsB = cards(o.cardsB);
+  r.pA = Array.isArray(o.pA) ? o.pA.slice(0,20).map(String) : []; r.pB = Array.isArray(o.pB) ? o.pB.slice(0,20).map(String) : [];
+  function ros(a){ return Array.isArray(a) ? a.slice(0,4).map(function(x){ return { name:sStr(x && x.name,40), club:sStr(x && x.club,40), country:sStr(x && x.country,8) }; }) : []; }
+  r.rosterA = ros(o.rosterA); r.rosterB = ros(o.rosterB);
+  r.bouts = Array.isArray(o.bouts) ? o.bouts.slice(0,12).map(function(b){ return { boutNum:sInt(b.boutNum,1,99,1), fencerA:sStr(b.fencerA,40), fencerB:sStr(b.fencerB,40), ptsA:sInt(b.ptsA,0,999,0), ptsB:sInt(b.ptsB,0,999,0), status:sStr(b.status,12),
+    cards:Array.isArray(b.cards) ? b.cards.slice(0,20).map(function(c){ return { side:c && c.side==='B' ? 'B' : 'A', type:c && c.type==='red' ? 'red' : 'yellow' }; }) : [] }; }) : null;
+  if (!r.bouts || !r.bouts.length) r.bouts = null;
+  r.scoreLog = Array.isArray(o.scoreLog) ? o.scoreLog.slice(0,400).map(function(e){
+    return { side:e.s==='B' ? 'B' : 'A', kind:e.k ? sStr(e.k,12) : 'touch', sA:sInt(e.a,0,999,0), sB:sInt(e.b,0,999,0), clock:e.c==null ? null : sInt(e.c,0,3600,0),
+      boutNum:e.n ? sInt(e.n,1,99,1) : null, period:e.p ? sInt(e.p,1,9,1) : null, fencer:sStr(e.f||'',40), at:0, note:sStr(e.t||'',300) };
+  }) : [];
+  r.savedAt = +o.savedAt > 0 ? +o.savedAt : Date.now();
+  return r;
+}
+function boutLink(t){ return (lvBaseUrl() || LIVE_PUBLIC_URL) + '#bout=' + t; }
+function shareBoutLink(){
+  var list = Store.get('starport_matches', []), rec = null;
+  for (var i=0;i<list.length;i++){ if (list[i].id===viewingMatchId){ rec=list[i]; break; } }
+  if (!rec) return;
+  var hasNotes = (rec.scoreLog||[]).some(function(e){ return e.note; });
+  closeSheet('viewMatchSheet');
+  lvSheet('<div class="sheet-title">🔗 Send this bout to the fencers</div>' +
+    '<div class="lv-sub" style="margin-top:0;line-height:1.5;">The fencers get a link with this whole bout inside it: the score, cards and <b>every touch with its time on the clock</b>. When they open it in Starport Fencing it is saved on <b>their</b> phone under Saved matches, where they can add their own notes to each touch while rewatching their video.<br><br>Nothing is uploaded — the bout travels inside the link.</div>' +
+    (hasNotes ? '<label style="display:flex;gap:8px;align-items:center;margin:4px 0 6px;"><input type="checkbox" id="bsNotes" style="width:auto;"> Include my notes</label>' : '') +
+    '<div id="bsQr" style="display:flex;justify-content:center;margin:8px 0;"></div><div class="lv-sub" id="bsQrNote" style="text-align:center;margin-top:0;"></div>' +
+    '<div class="sheet-row" style="flex-direction:column;gap:8px;"><button class="btn btn-gold btn-block" id="bsSend">Send link…</button><button class="btn btn-ghost btn-block" id="bsCopy">Copy link</button></div>' +
+    '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Close</button></div>');
+  var link = '';
+  function build(){
+    var withNotes = !!(document.getElementById('bsNotes') && document.getElementById('bsNotes').checked);
+    return boutPack(rec, withNotes).then(function(t){
+      link = boutLink(t);
+      var qn = document.getElementById('bsQrNote'), q = document.getElementById('bsQr');
+      if (q){ q.innerHTML = ''; q.style.display = 'flex'; }
+      if (link.length <= 1100){ lvQrInto('bsQr', link, Math.min(300, (window.innerWidth||360) - 60)); if (qn) qn.textContent = 'Fencer next to you? They can scan this.'; }
+      else { if (q) q.style.display = 'none'; if (qn) qn.textContent = 'Long bout — send the link instead of a QR code.'; }
+      return link;
+    });
+  }
+  build();
+  var nb = document.getElementById('bsNotes'); if (nb) nb.onchange = build;
+  var text = rec.teamA + ' ' + rec.scoreA + '–' + rec.scoreB + ' ' + rec.teamB + (rec.label ? ' (' + rec.label + ')' : '') + ' — open in Starport Fencing to keep this bout and add your own notes:';
+  document.getElementById('bsSend').onclick = function(){
+    build().then(function(l){
+      if (navigator.share){ navigator.share({ title:'Starport Fencing bout', text:text, url:l }).catch(function(){}); }
+      else lvCopy(text + ' ' + l);
+    });
+  };
+  document.getElementById('bsCopy').onclick = function(){ build().then(function(l){ lvCopy(l); }); };
+}
+function boutHandleLink(){
+  var h = String(location.hash || '');
+  var mb = h.match(/bout=([A-Za-z0-9_\-]+)/);
+  if (!mb) return false;
+  try { history.replaceState(null, '', location.pathname); } catch(e){}
+  show('setup');
+  boutUnpack(mb[1]).then(boutImportSheet, function(err){
+    lvSheet('<div class="sheet-title">Could not open this bout</div><div class="lv-sub" style="margin-top:0;">' +
+      (err && err.message === 'old' ? 'This browser is too old to open bout links. Try Chrome or Safari, or update the app.' : 'The link looks incomplete — ask the referee to send it again.') +
+      '</div><div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Close</button></div>');
+  });
+  return true;
+}
+function boutImportSheet(r){
+  var list = Store.get('starport_matches', []);
+  var dupe = list.filter(function(x){ return x.imported && x.teamA===r.teamA && x.teamB===r.teamB && x.scoreA===r.scoreA && x.scoreB===r.scoreB && x.savedAt===r.savedAt; })[0];
+  lvSheet('<div class="sheet-title">📥 A bout from ' + esc(r.referee || 'the referee') + '</div>' +
+    '<div class="champion-banner" style="margin:6px 0 10px;"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:24px;">' + esc(r.teamA) + ' ' + r.scoreA + ' – ' + r.scoreB + ' ' + esc(r.teamB) + '</div>' +
+    '<div style="color:var(--muted);font-size:12px;margin-top:4px;">' + esc([r.label, r.weaponName, r.fmtName, new Date(r.savedAt).toLocaleDateString()].filter(Boolean).join(' · ')) + '</div></div>' +
+    '<div class="lv-sub" style="margin-top:0;line-height:1.5;">Save it to <b>Saved matches</b> on this phone. You get every touch with its time on the clock — open the bout while you watch your video, find each touch by its time, and type what you see under it. Your notes stay on this phone only.</div>' +
+    (dupe ? '<div class="lv-sub">You already saved this bout.</div>' : '') +
+    '<div class="sheet-row" style="flex-direction:column;gap:8px;"><button class="btn btn-gold btn-block" id="biSave">' + (dupe ? 'Open my copy' : 'Save to my matches') + '</button>' +
+    '<button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Not now</button></div>');
+  document.getElementById('biSave').onclick = function(){
+    var id = dupe ? dupe.id : Date.now();
+    if (!dupe){
+      var rec = {}; for (var k in r) rec[k] = r[k];
+      rec.id = id; rec.imported = true; rec.importedAt = Date.now(); rec.savedFlag = true;
+      var l2 = Store.get('starport_matches', []); l2.unshift(rec); Store.set('starport_matches', l2.slice(0,300));
+    }
+    lvCloseSheet(); openHistory('setup');
+    setTimeout(function(){ viewSavedMatch(id); }, 60);
+    if (!dupe) toast('📥 Saved — add notes under each touch');
+  };
+}
+function openImportBoutHelp(){
+  lvSheet('<div class="sheet-title">🔗 Bout links</div><div class="lv-sub" style="margin-top:0;line-height:1.55;">' +
+    '<b>Referees:</b> after a bout, open it in Saved matches and tap <b>Send this bout to the fencers</b>. You can send a link or let the fencer scan a QR code.<br><br>' +
+    '<b>Fencers:</b> open the link the referee sent you. The bout is saved to Saved matches on your phone, with every touch and its time on the clock — so you can rewatch your video and write a note for each touch.<br><br>Got a link? Paste it here:</div>' +
+    '<input id="biPaste" placeholder="https://…#bout=…" autocomplete="off">' +
+    '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Close</button><button class="btn btn-gold btn-block" id="biOpen">Open</button></div>');
+  document.getElementById('biOpen').onclick = function(){
+    var v = String(document.getElementById('biPaste').value||''), mb = v.match(/bout=([A-Za-z0-9_\-]+)/);
+    if (!mb){ toast('That is not a bout link'); return; }
+    lvCloseSheet();
+    boutUnpack(mb[1]).then(boutImportSheet, function(){ toast('That link looks incomplete'); });
+  };
 }
 
 /* ============================================================
@@ -3265,6 +3444,7 @@ function liveCleanEvent(d){
     mm.rs = r ? r.status : ''; mm.rseq = r ? r.seq : 0;
     mm.rsA = r && r.hasScore ? r.scoreA : null; mm.rsB = r && r.hasScore ? r.scoreB : null;
     mm.rbouts = r && r.bouts.length ? r.bouts : null;
+    mm.claim = liveCleanClaim((d.claims && typeof d.claims==='object') ? d.claims[mm.id] : null);
   });
   ev.matches.sort(liveMatchCmp);
   return ev;
@@ -3275,6 +3455,7 @@ function openLiveConnect(prefill){
   var c = document.getElementById('liveCodeIn');
   if (c) c.value = prefill || (liveConn ? liveConn.code : '');
   var p = document.getElementById('livePinIn'); if (p) p.value = '';
+  setVal('liveRefIn', (liveConn && liveConn.ref) || Store.get('starport_refname','') || ((document.getElementById('refereeName')||{}).value||''));
   liveConnectMsg(liveEnabled() ? '' : 'Starport Live is not switched on in this version yet. Scoring works as normal.');
   openSheet('liveConnectSheet');
 }
@@ -3290,6 +3471,8 @@ function liveConnect(){
   if (!liveEnabled()){ liveConnectMsg('Starport Live is not switched on in this version yet.', true); return; }
   if (inp.code.length < 4){ liveConnectMsg('Enter the event code from the host.', true); return; }
   if (pin.length < 4){ liveConnectMsg('Enter the referee PIN from the host.', true); return; }
+  var refName = String((document.getElementById('liveRefIn')||{}).value || '').trim().slice(0,40);
+  if (refName.length < 2){ liveConnectMsg('Type your name — each bout is locked to one named referee.', true); return; }
   liveBusy = true;
   var btn = document.getElementById('liveConnectBtn'); if (btn) btn.disabled = true;
   liveConnectMsg('Connecting…');
@@ -3305,8 +3488,8 @@ function liveConnect(){
         liveConnectMsg((r2.status===401 || r2.status===403) ? 'Referee PIN is incorrect.' : ('Could not check the PIN: ' + liveReason(r2) + '.'), true);
         return;
       }
-      liveConn = { code:inp.code, pin:pin, eventName:ev.name, weapon:ev.weapon, pistes:ev.pistes, piste:0, matches:ev.matches, fetchedAt:Date.now() };
-      liveSaveConn();
+      liveConn = { code:inp.code, pin:pin, ref:refName, eventName:ev.name, weapon:ev.weapon, pistes:ev.pistes, piste:0, matches:ev.matches, fetchedAt:Date.now() };
+      liveSaveConn(); Store.set('starport_refname', refName); setVal('refereeName', refName);
       closeSheet('liveConnectSheet');
       liveHighlight = inp.match;
       renderLivePanel();
@@ -3389,6 +3572,10 @@ function renderLivePanel(){
     else if (m.rs==='in_progress' || sent[k]) chip = '<span class="lr-chip wait">' + (m.rsA!=null ? m.rsA + '–' + m.rsB : 'part sent') + '</span>';
     else if (m.rs==='deferred') chip = '<span class="lr-chip">moved to end</span>';
     else chip = '<span class="lr-chip">open</span>';
+    if (m.claim && m.rs !== 'done' && m.rs !== 'cancelled' && !(sent[k] && sent[k].final)){
+      if (m.claim.status==='active') chip += '<span class="lr-chip' + (m.claim.device===liveDeviceId() ? ' ok' : ' wait') + '" title="Referee">🔒 ' + esc(m.claim.device===liveDeviceId() ? 'you' : m.claim.ref) + '</span>';
+      else if (m.claim.status==='handover') chip += '<span class="lr-chip wait">🤝 ready</span>';
+    }
     var a = m.teamA || 'TBC', b = m.teamB || 'TBC';
     var cls = 'live-row' + (pendingLiveLoad && pendingLiveLoad.matchId===m.id ? ' loaded' : '') + (liveHighlight===m.id ? ' hl' : '');
     var meta = [m.piste ? 'Piste ' + m.piste : '', m.round, fmtNameById(m.fmt)].filter(Boolean).join(' · ');
@@ -3445,7 +3632,9 @@ function setVal(id, v){ var e = document.getElementById(id); if (e) e.value = v=
 function liveLoadMatch(id){
   var m = liveFindMatch(id);
   if (!m) return;
+  if (!liveConn.ref){ liveAskRefName(function(){ liveLoadMatch(id); }); return; }
   var k = liveKey(liveConn.code, m.id), sent = liveSent();
+  var resume = null;
   function go(){
     try {
       selectedWeapon = m.weapon; renderWeapons();
@@ -3465,22 +3654,121 @@ function liveLoadMatch(id){
         }
       }
       if (m.piste) liveConn.piste = m.piste;   // follow this referee's piste for the 'Next on piste' prompt
-      pendingLiveLoad = { code:liveConn.code, matchId:m.id, piste:m.piste, fmt:m.fmt, relay:m.relay,
+      setVal('refereeName', liveConn.ref);
+      if (resume){ if (resume.teamA) setVal('nameA', resume.teamA); if (resume.teamB) setVal('nameB', resume.teamB); }
+      pendingLiveLoad = { code:liveConn.code, matchId:m.id, piste:m.piste, fmt:m.fmt, relay:m.relay, resume:resume,
         teamA:m.teamA, teamB:m.teamB,
         rosterA:m.rosterA.map(function(x){return x.name;}), rosterB:m.rosterB.map(function(x){return x.name;}) };
       liveHighlight = null;
       renderLivePanel();
       try { window.scrollTo(0,0); } catch(e){}
-      toast('Bout loaded — check names, then Start match');
+      toast(resume ? 'Bout loaded — tap Start match to carry on from ' + resume.scoreA + '–' + resume.scoreB : 'Bout loaded — check names, then Start match');
+      liveClaim(m.id, 'active');
     } catch(e){
       pendingLiveLoad = null;
       toast('Could not load that bout — enter it manually');
     }
   }
-  if (m.rs === 'cancelled') askConfirm('This bout was marked Withdrawn. Open it anyway? Uploading a score will put it back in the results.', go);
-  else if ((sent[k] && sent[k].final) || m.status==='done' || m.rs==='done') askConfirm('This bout already has a result on Starport Live. Open it again? Uploading again will replace that result.', go);
-  else go();
+  function checks(){
+    if (m.rs === 'cancelled') askConfirm('This bout was marked Withdrawn. Open it anyway? Uploading a score will put it back in the results.', go);
+    else if ((sent[k] && sent[k].final) || m.status==='done' || m.rs==='done') askConfirm('This bout already has a result on Starport Live. Open it again? Uploading again will replace that result.', go);
+    else go();
+  }
+  // Who is refereeing this bout right now? (one referee per bout)
+  toast('Checking who is refereeing this bout\u2026');
+  var base = '/events/' + sId(liveConn.code) + '/public/';
+  Promise.all([liveFetch('GET', base + 'claims/' + sId(m.id)), liveFetch('GET', base + 'results/' + sId(m.id))]).then(function(rr){
+    var c = rr[0].ok ? liveCleanClaim(rr[0].data) : null, res = rr[1].ok ? rr[1].data : null;
+    var st = null;
+    try { if (res && res.status === 'in_progress' && typeof res.state === 'string' && res.state.length < 200000) st = JSON.parse(res.state); } catch(e){ st = null; }
+    function offerResume(){
+      if (st && st.fmtId === m.fmt){
+        lvSheet('<div class="sheet-title">🤝 Carry on this bout?</div>' +
+          '<div class="lv-sub" style="margin-top:0;">' + esc((c && c.ref) || 'The last referee') + ' uploaded <b>' + esc(st.teamA||m.teamA) + ' ' + (st.scoreA|0) + '–' + (st.scoreB|0) + ' ' + esc(st.teamB||m.teamB) + '</b>' +
+          (st.relay && st.bouts ? ' (bout ' + ((st.bouts.filter(function(b){ return b.status==='done'; }).length)+1) + ' of ' + st.bouts.length + ')' : '') +
+          (st.clock != null ? ', ' + mmss(st.clock) + ' on the clock' : '') + '. Carry on from there, with the cards and the touch timeline?</div>' +
+          '<div class="sheet-row" style="flex-direction:column;gap:8px;"><button class="btn btn-gold btn-block" id="lvResumeYes">Carry on from ' + (st.scoreA|0) + '–' + (st.scoreB|0) + '</button>' +
+          '<button class="btn btn-ghost btn-block" id="lvResumeNo">Start from 0–0</button></div>');
+        document.getElementById('lvResumeYes').onclick = function(){ lvCloseSheet(); resume = st; checks(); };
+        document.getElementById('lvResumeNo').onclick = function(){ lvCloseSheet(); resume = null; checks(); };
+      } else checks();
+    }
+    if (!rr[0].ok) toast('Could not check the referee lock (' + liveReason(rr[0]) + ') — opening anyway');
+    if (c && c.status === 'active' && c.device !== liveDeviceId() && m.rs !== 'done'){
+      lvSheet('<div class="sheet-title">🔒 ' + esc(c.ref) + ' is refereeing this bout</div>' +
+        '<div class="lv-sub" style="margin-top:0;">Only one referee scores a bout at a time. Ask ' + esc(c.ref) + ' to tap <b>🤝 Hand over</b> on their scoreboard — it saves and uploads the score so you can carry on.<br><br>Only take over if they cannot (phone flat, they had to leave). Locked since ' + new Date(c.at||Date.now()).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}) + '.</div>' +
+        '<div class="sheet-row" style="flex-direction:column;gap:8px;"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">OK, I\'ll wait</button>' +
+        '<button class="btn btn-ghost btn-block" style="color:#f0c000;border-color:rgba(240,192,0,.45);" id="lvTakeOver">Take over from ' + esc(c.ref) + '</button></div>');
+      document.getElementById('lvTakeOver').onclick = function(){ lvCloseSheet(); offerResume(); };
+      return;
+    }
+    offerResume();
+  });
 }
+function liveCleanClaim(x){
+  if (!x || typeof x !== 'object' || typeof x.ref !== 'string') return null;
+  var st = x.status === 'active' || x.status === 'handover' || x.status === 'done' ? x.status : null;
+  if (!st) return null;
+  return { ref:sStr(x.ref,40) || 'Referee', device:String(x.device||''), status:st, at:+x.at || 0 };
+}
+function liveAskRefName(cb){
+  lvSheet('<div class="sheet-title">Your name</div><div class="lv-sub" style="margin-top:0;">Each bout is locked to one named referee, so the host and other referees can see who is scoring it.</div>' +
+    '<input id="lvRefNameIn" maxlength="40" value="' + escAttr(Store.get('starport_refname','') || ((document.getElementById('refereeName')||{}).value||'')) + '" placeholder="Referee name">' +
+    '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button><button class="btn btn-gold btn-block" id="lvRefNameOk">Continue</button></div>');
+  document.getElementById('lvRefNameOk').onclick = function(){
+    var v = String(document.getElementById('lvRefNameIn').value||'').trim().slice(0,40);
+    if (v.length < 2){ toast('Type your name'); return; }
+    liveConn.ref = v; liveSaveConn(); Store.set('starport_refname', v); setVal('refereeName', v);
+    lvCloseSheet(); cb();
+  };
+}
+/* Lock / hand over / done — written with the referee (or host) PIN like a result */
+function liveClaim(mid, status, done){
+  if (!liveConn) { if (done) done({ok:false}); return; }
+  var N = lvNonce(), body = {};
+  body['public/claims/' + sId(mid)] = { ref:liveConn.ref || 'Referee', device:liveDeviceId(), status:status, at:Date.now(), nonce:N };
+  body['resultAuth/' + N] = { pin:liveConn.pin, m:sId(mid), device:liveDeviceId(), at:Date.now() };
+  liveFetch('PATCH', '/events/' + sId(liveConn.code), body).then(function(r){
+    if (!r.ok && status === 'active') toast('Could not lock this bout to you (' + liveReason(r) + ') — you can still score it');
+    if (done) done(r);
+  });
+}
+/* After startMatch(): carry on from the previous referee's upload */
+var RESUME_KEYS = ['period','scoreA','scoreB','bouts','cardsA','cardsB','cardLog','pA','pB','pLog','reviewsUsedA','reviewsUsedB','breakTaken','scoreLog','rosterA','rosterB','periodsTotal'];
+function liveApplyResume(){
+  var st = M && M.live && M.live.resume;
+  if (!st) return;
+  delete M.live.resume;
+  RESUME_KEYS.forEach(function(k){ if (st[k] !== undefined && st[k] !== null) M[k] = st[k]; });
+  if (st.clock != null){ var c = +st.clock; if (c >= 0 && c <= 3600) timer.seconds = c; }
+  M.scoreA = M.scoreA|0; M.scoreB = M.scoreB|0;
+  toast('Carrying on from ' + M.scoreA + '–' + M.scoreB);
+}
+function liveMatchState(src){
+  var o = {}; RESUME_KEYS.forEach(function(k){ if (src[k] !== undefined) o[k] = src[k]; });
+  o.fmtId = src.fmtId; o.relay = !!src.relay; o.teamA = src.teamA; o.teamB = src.teamB;
+  o.clock = (src === M && timer) ? timer.seconds : null;
+  var j = JSON.stringify(o);
+  if (j.length > 150000){ o.scoreLog = (o.scoreLog||[]).slice(-150); j = JSON.stringify(o); }
+  return j;
+}
+/* 🤝 Hand over: upload the score so far, unlock, save on this phone and leave */
+function liveHandOver(){
+  if (!M || !M.live) return;
+  askConfirm('Hand this bout to another referee? The score so far (' + M.scoreA + '–' + M.scoreB + ') is uploaded and saved on this phone, then you leave the bout. The next referee opens it from their bout list and carries on.', function(){
+    stopTimer(); try { if (brk.active) stopBreak(); } catch(e){}
+    var key = liveQueue(M, false, 'handover');
+    toast('Handing over\u2026');
+    liveSendKey(key).then(function(res){
+      if (!res || !res.ok){ toast('Not handed over (' + ((res && res.reason) || 'busy') + ') — check the internet and try again'); return; }
+      M.handedOver = true;
+      persistMatch(); releaseWake();
+      show('setup'); try { liveRefresh(true); } catch(e){}
+      toast('🤝 Handed over and saved — the next referee can carry on');
+    });
+  });
+}
+
 function liveUnload(){ pendingLiveLoad = null; renderLivePanel(); toast('Unlinked — this match will stay on this device only'); }
 
 /* ---------- referee tools (each change is one button press, then synced) ---------- */
@@ -3698,7 +3986,7 @@ function liveAttachToMatch(){
   if (!pendingLiveLoad || !liveConn || pendingLiveLoad.code !== liveConn.code) { pendingLiveLoad = null; return; }
   if (pendingLiveLoad.fmt !== M.fmtId){ pendingLiveLoad = null; toast('Format changed — match not linked to Starport Live'); renderLivePanel(); return; }
   var L = pendingLiveLoad;
-  M.live = { code:L.code, matchId:L.matchId, piste:L.piste, pin:liveConn.pin, eventName:liveConn.eventName,
+  M.live = { code:L.code, matchId:L.matchId, piste:L.piste, pin:liveConn.pin, ref:liveConn.ref || M.referee || 'Referee', resume:L.resume || null, eventName:liveConn.eventName,
              orig:{ teamA:L.teamA, teamB:L.teamB, rosterA:L.rosterA, rosterB:L.rosterB } };
   if (M.relay && L.relay && M.bouts){
     for (var i=0;i<M.bouts.length && i<L.relay.length;i++){
@@ -3738,16 +4026,19 @@ function liveBuildPayload(src, final){
     bouts: bouts, boutsDone: done,
     cards: { yA:ct.ya, rA:ct.ra, yB:ct.yb, rB:ct.rb },
     pcards: { A:(src.pA||[]).slice(), B:(src.pB||[]).slice() },
+    state: final ? null : liveMatchState(src),
     updatedAt: Date.now()
   };
 }
-function liveQueue(src, final){
+function liveQueue(src, final, claim){
   if (!src || !src.live) return null;
   var payload = liveBuildPayload(src, final);
+  if (!payload.referee) payload.referee = src.live.ref || '';
   var key = liveKey(src.live.code, src.live.matchId);
   var ob = liveOutbox();
   if (!final && ob[key] && ob[key].payload && ob[key].payload.final) return key;  // never let a part-result replace a waiting final
-  ob[key] = { code:src.live.code, matchId:src.live.matchId, payload:payload, queuedAt:Date.now() };
+  ob[key] = { code:src.live.code, matchId:src.live.matchId, payload:payload, queuedAt:Date.now(),
+    claim: final ? 'done' : (claim || null), ref: src.live.ref || src.referee || 'Referee' };
   Store.set('starport_live_outbox', ob);
   return key;
 }
@@ -3766,7 +4057,15 @@ function liveSendKey(key){
   var body = {};
   body['public/results/' + sId(e.matchId)] = pub;
   body['resultAuth/' + nonce] = { pin:e.payload.pin, m:sId(e.matchId), device:liveDeviceId(), at:Date.now() };
+  if (e.claim) body['public/claims/' + sId(e.matchId)] = { ref:String(e.ref||'Referee').slice(0,40), device:liveDeviceId(), status:e.claim, at:Date.now(), nonce:nonce };
   return liveFetch('PATCH', '/events/' + sId(e.code), body).then(function(r){
+    // Older database rules (before referee locks) refuse the claim path — send the result on its own.
+    if (!r.ok && e.claim && (r.status === 401 || r.status === 403)){
+      delete body['public/claims/' + sId(e.matchId)];
+      return liveFetch('PATCH', '/events/' + sId(e.code), body);
+    }
+    return r;
+  }).then(function(r){
     liveSending[key] = false;
     if (r.ok){
       var ob = liveOutbox();
@@ -3837,6 +4136,8 @@ function uploadViewedMatch(){
 function renderLiveLine(){
   var el = document.getElementById('liveLine');
   if (!el) return;
+  var hr = document.getElementById('liveHandRow');
+  if (hr) hr.style.display = (M && M.live && M.status === 'live' && !M.savedFlag) ? 'block' : 'none';
   if (!M || !M.live){ el.style.display = 'none'; el.onclick = null; return; }
   var key = liveKey(M.live.code, M.live.matchId), st = liveState[key], ob = liveOutbox();
   var txt = '📡 ' + (M.live.eventName || 'Starport Live') + (M.live.piste ? ' · Piste ' + M.live.piste : '') + ' · ';
@@ -3913,10 +4214,27 @@ var FIE_RELAY = [[2,2],[0,1],[1,0],[0,2],[2,0],[1,1],[0,0],[1,2],[2,1]];
    Standard 3-fencer order (FIE): A 3,1,2,1,3,2,1,2,3  B 6,5,4,6,4,5,4,6,5.
    With the reserve fencing, each of the 4 fences 2-3 bouts and nobody fences two in a row. */
 var RELAY_SEQ = { A3:[2,0,1,0,2,1,0,1,2], B3:[2,1,0,2,0,1,0,2,1], A4:[2,0,1,3,0,2,1,3,0], B4:[2,1,0,3,0,2,1,3,0] };
-function lvRelayFor(nA, nB, resA, resB){
+/* When all four fence, the slot that fences 3 times (fencer 1's slot) goes to the
+   highest-skill fencer in the team; the others keep their places. */
+function lvSkillMap(skills){
+  var map = [0,1,2,3];
+  if (!skills || skills.length < 4) return map;
+  var top = 0; for (var i=1;i<4;i++) if ((skills[i]||0) > (skills[top]||0)) top = i;
+  if (top === 0) return map;
+  var rest = [0,1,2,3].filter(function(k){ return k !== top; });
+  return [top].concat(rest);
+}
+function lvOrdOk(o, n){
+  if (!Array.isArray(o) || o.length !== 9) return false;
+  for (var i=0;i<9;i++){ if (typeof o[i] !== 'number' || o[i] < 0 || o[i] >= n || o[i] !== Math.floor(o[i])) return false; }
+  return true;
+}
+function lvRelayFor(nA, nB, resA, resB, skA, skB, ordA, ordB){
   if (nA < 3 || nB < 3) return null;
   var a = (resA && nA >= 4) ? RELAY_SEQ.A4 : RELAY_SEQ.A3, b = (resB && nB >= 4) ? RELAY_SEQ.B4 : RELAY_SEQ.B3, out = [];
-  for (var i=0;i<9;i++) out.push([a[i], b[i]]);
+  var ma = (resA && nA >= 4) ? lvSkillMap(skA) : [0,1,2,3], mb = (resB && nB >= 4) ? lvSkillMap(skB) : [0,1,2,3];
+  var ca = lvOrdOk(ordA, Math.min(nA,4)), cb = lvOrdOk(ordB, Math.min(nB,4));
+  for (var i=0;i<9;i++) out.push([ca ? ordA[i] : ma[a[i]], cb ? ordB[i] : mb[b[i]]]);
   return out;
 }  // 3-6,1-5,2-4,1-6,3-4,2-5,1-4,2-6,3-5
 var LIVE_PUBLIC_URL = 'https://portusstellaelab.github.io/starportfencing/';   // public web address of this app, used for share links when running inside the store app
@@ -4352,7 +4670,7 @@ function lhOpen(){
   show('liveHost');
   if (LH.stream) LH.stream.close();
   LH.stream = lvStream('/events/' + LH.code + '/public', function(tree){
-    if (!LH) return; LH.results = (tree && tree.results) || {}; LH.checkins = (tree && tree.checkins) || {}; LH.pub = {}; if (tree && tree.matches) Object.keys(tree.matches).forEach(function(k){ LH.pub[k] = 1; }); lhScheduleRender();
+    if (!LH) return; LH.results = (tree && tree.results) || {}; LH.checkins = (tree && tree.checkins) || {}; LH.pubF = (tree && tree.fencers) || {}; LH.pub = {}; if (tree && tree.matches) Object.keys(tree.matches).forEach(function(k){ LH.pub[k] = 1; }); lhScheduleRender();
   }, function(st){ if (LH){ LH.net = st; lhRenderBar(); } });
   lhRender();
 }
@@ -4377,7 +4695,10 @@ function lhBuildPublic(){
       if (tb){ x.teamB = tb.name; x.rosterB = tb.members.slice(0,4).map(function(id){ var f = d.fencers[id]; return { name:f.name, club:f.club||'', country:f.country||'' }; }); }
       var dres = d.meta.reserves === true;
       var rA = (x.resA === true || x.resA === false) ? x.resA : dres, rB = (x.resB === true || x.resB === false) ? x.resB : dres;
-      x.relay = (x.rosterA && x.rosterB) ? lvRelayFor(x.rosterA.length, x.rosterB.length, rA, rB) : null;
+      var skOf = function(t){ return t ? t.members.slice(0,4).map(function(id){ return (d.fencers[id] && d.fencers[id].skill) || 3; }) : null; };
+      x.relay = (x.rosterA && x.rosterB) ? lvRelayFor(x.rosterA.length, x.rosterB.length, rA, rB, skOf(ta), skOf(tb), x.ordA, x.ordB) : null;
+      x.customOrder = !!((x.ordA && lvOrdOk(x.ordA, Math.min(x.rosterA ? x.rosterA.length : 0, 4))) || (x.ordB && lvOrdOk(x.ordB, Math.min(x.rosterB ? x.rosterB.length : 0, 4)))) || null;
+      delete x.ordA; delete x.ordB;
     } else {
       var fa = d.fencers[x.aRef], fb = d.fencers[x.bRef];
       if (fa){ x.teamA = fa.name; x.clubA = fa.club||''; x.countryA = fa.country||''; }
@@ -4398,7 +4719,7 @@ function lhPublish(after){
   liveFetch('PATCH', '/events/' + code, body).then(function(r){
     if (!LH || LH.code !== code) return;
     LH.busy = false;
-    if (r.ok){ LH.dirty = false; LH.pub = {}; Object.keys(pub.matches||{}).forEach(function(k){ LH.pub[k] = 1; }); lhSaveLocal(); toast('\u2713 Published'); if (after) after(); }
+    if (r.ok){ LH.dirty = false; LH.pubF = pub.fencers || {}; LH.pub = {}; Object.keys(pub.matches||{}).forEach(function(k){ LH.pub[k] = 1; }); lhSaveLocal(); toast('\u2713 Published'); if (after) after(); }
     else toast('Not published (' + liveReason(r) + '). Your changes are kept on this device.');
     lhRender();
   });
@@ -4446,7 +4767,7 @@ function lhFencersHtml(){
   var present = ids.filter(function(id){ return !d.fencers[id].absent; }), here = present.filter(function(id){ return ci[id]; });
   if (st){
     var flt = LH.ciFilter || 'all';
-    html += '<div class="lv-ci' + (st==='open' ? '' : ' closed') + '" style="display:block;"><b>📍 Check-in ' + (st==='open' ? 'open' : 'closed') + ': ' + here.length + ' of ' + present.length + ' here</b>' +
+    html += '<div class="lv-ci' + (st==='open' ? '' : ' closed') + '" style="display:block;"><b>📍 Check-in ' + (st==='open' ? 'open' : 'closed') + ': ' + here.length + ' of ' + present.length + ' here</b>' + (ids.length > present.length ? ' <span>· ' + (ids.length - present.length) + ' absent (not counted)</span>' : '') +
       (st==='closed' && present.length > here.length ? '<br><span>' + (present.length - here.length) + ' did not check in.</span> <button class="btn btn-gold btn-sm" style="margin-top:6px;" onclick="lhNoShowsSheet()">Remove no-shows…</button>' : '') + '</div>' +
       '<div class="lv-seg" style="margin-bottom:8px;">' + [['all','All'],['here','Here'],['missing','Not yet'],['absent','Absent']].map(function(t){ return '<button class="' + (flt===t[0]?'on':'') + '" onclick="LH.ciFilter=\'' + t[0] + '\';lhRender()">' + t[1] + '</button>'; }).join('') + '</div>';
     ids = ids.filter(function(id){ var f = d.fencers[id]; if (flt==='here') return !!ci[id]; if (flt==='missing') return !ci[id] && !f.absent; if (flt==='absent') return !!f.absent; return true; });
@@ -4505,7 +4826,22 @@ function lhSetAbsent(fid, on){
   f.absent = on || null;
   if (on) Object.keys(LH.d.teams).forEach(function(k){ LH.d.teams[k].members = LH.d.teams[k].members.filter(function(m){ return m !== fid; }); });
   lvCloseSheet(); lhDirty();
-  toast(on ? f.name + ' marked absent and taken out of their team' : f.name + ' is back in — add them to a team');
+  // During check-in the absent mark goes to Fencing Live straight away (and clears any check-in),
+  // so every count — here and on fencers' phones — matches. Team changes still wait for Publish.
+  var onLive = !!(LH.code && LH.d.meta.checkin && LH.pubF && LH.pubF[fid]);
+  if (onLive){
+    var N = lvNonce(), body = { 'public/_n':N };
+    body['public/fencers/' + fid + '/absent'] = on ? true : null;
+    if (on) body['public/checkins/' + fid] = null;
+    body['hostAuth/' + N] = { pin:LH.hostPin, at:{'.sv':'timestamp'} };
+    if (on && LH.checkins) delete LH.checkins[fid];
+    liveFetch('PATCH', '/events/' + LH.code, body).then(function(r){
+      if (r.ok){ try { LH.pubF[fid].absent = on ? true : null; } catch(e){} lhRender(); }
+      else toast('Absent mark not sent yet (' + liveReason(r) + ') — it goes with your next Publish');
+    });
+  }
+  lhRender();
+  toast(on ? f.name + ' marked absent' + (onLive ? ' (check-in counts updated)' : '') + ' and taken out of their team — Publish when your teams are ready' : f.name + ' is back in — add them to a team');
 }
 function lhNoShowsSheet(){
   var d = LH.d, ci = LH.checkins || {};
@@ -4821,6 +5157,7 @@ function lhBoutSheet(id, kindOverride){
     '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button><button class="btn btn-gold btn-block" onclick="lhSaveBout(' + (id ? '\'' + id + '\'' : 'null') + ',\'' + kind + '\')">Save</button></div>' +
     (x ? '' : '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lhSaveBout(null,\'' + kind + '\',true)">Save and add another ' + noun + '</button></div>');
   if (x){
+    if (kind === 'team') html += '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lhOrderSheet(\'' + id + '\')">⇄ Bout order — who fences which bout' + (x.ordA || x.ordB ? ' (custom)' : '') + '</button></div>';
     html += '<div class="sheet-row"><button class="btn btn-primary btn-block" onclick="lhOpenInScoreboard(\'' + id + '\')">⚔ Open in Scoreboard</button></div>' +
       '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lhResultSheet(\'' + id + '\')">\uD83D\uDCDD Score sheet (enter or fix scores)</button></div>' +
       '<div class="sheet-row"><button class="btn btn-ghost btn-block" style="color:var(--red2);border-color:rgba(231,76,60,.4);" onclick="lhDeleteBout(\'' + id + '\')">Delete ' + noun + '</button></div>';
@@ -4834,6 +5171,66 @@ function lhBoutSheet(id, kindOverride){
     lhSetPisteField(sInt(Store.get('starport_lh_lastpiste', 0),0,99,0)); lhSetRound(LH.lastRound || ''); setVal('lbT', '');
     var nra = document.getElementById('lbResA'), nrb = document.getElementById('lbResB'); if (nra) nra.checked = LH.d.meta.reserves === true; if (nrb) nrb.checked = LH.d.meta.reserves === true;
   }
+}
+/* ---------- team bout order: swap fencers within a team, or set each bout by hand ---------- */
+var lhOrd = null;
+function lhOrderSheet(id){
+  var pub = lhBuildPublic(), x = pub.matches[id];
+  if (!x || x.fmt !== 'team'){ toast('Match not found'); return; }
+  if (!x.relay){ toast('Both teams need at least 3 fencers first'); return; }
+  lhOrd = { id:id, rA:x.rosterA.slice(0,4), rB:x.rosterB.slice(0,4), A:x.relay.map(function(p){ return p[0]; }), B:x.relay.map(function(p){ return p[1]; }), teamA:x.teamA, teamB:x.teamB };
+  lhOrdRender();
+}
+function lhOrdWarn(o, ros){
+  var w = [], cnt = ros.map(function(){ return 0; });
+  o.forEach(function(k, i){ cnt[k]++; if (i && o[i-1] === k) w.push(ros[k].name + ' fences bouts ' + i + ' and ' + (i+1) + ' back to back'); });
+  ros.forEach(function(r, k){ if (cnt[k] > 3) w.push(r.name + ' fences ' + cnt[k] + ' bouts (FIE allows 3)'); });
+  return { cnt:cnt, warn:w };
+}
+function lhOrdRender(){
+  var O = lhOrd; if (!O) return;
+  function sel(side, i){
+    var ros = side === 'A' ? O.rA : O.rB, v = (side === 'A' ? O.A : O.B)[i];
+    return '<select class="lo-sel" onchange="lhOrd.' + side + '[' + i + ']=+this.value;lhOrdRender()">' + ros.map(function(r, k){ return '<option value="' + k + '"' + (k===v?' selected':'') + '>' + esc(r.name) + (k===3 ? ' (R)' : '') + '</option>'; }).join('') + '</select>';
+  }
+  function swapRow(side){
+    var ros = side === 'A' ? O.rA : O.rB, opts = ros.map(function(r, k){ return '<option value="' + k + '">' + esc(r.name) + '</option>'; }).join('');
+    return '<div class="lo-swap"><select id="loS' + side + '1">' + opts + '</select><span>⇄</span><select id="loS' + side + '2">' + ros.map(function(r, k){ return '<option value="' + k + '"' + (k===1?' selected':'') + '>' + esc(r.name) + '</option>'; }).join('') + '</select><button class="btn btn-ghost btn-sm" onclick="lhOrdSwap(\'' + side + '\')">Swap</button></div>';
+  }
+  function summary(side){
+    var ros = side === 'A' ? O.rA : O.rB, r = lhOrdWarn(side === 'A' ? O.A : O.B, ros);
+    return '<div class="lv-sub" style="margin:4px 0 0;">' + ros.map(function(f, k){ return esc(f.name) + ' <b>' + r.cnt[k] + '</b>'; }).join(' · ') + '</div>' +
+      r.warn.map(function(t){ return '<div class="lv-sub" style="margin:2px 0 0;color:#f0c000;">⚠ ' + esc(t) + '</div>'; }).join('');
+  }
+  var rows = '';
+  for (var i=0;i<9;i++) rows += '<div class="lo-r"><span>' + (i+1) + '</span>' + sel('A', i) + '<span class="lo-t">' + ((i+1)*5) + '</span>' + sel('B', i) + '</div>';
+  lvSheet('<div class="sheet-title">⇄ Bout order</div>' +
+    '<div class="lv-sub" style="margin-top:0;">Change who fences each bout. To swap two fencers everywhere, use Swap. Referees and viewers get the new order when you Publish. The referee can still change it on the day with ⇄ Team order.</div>' +
+    '<div class="lo-h"><span>#</span><span>' + esc(O.teamA) + '</span><span></span><span>' + esc(O.teamB) + '</span></div>' + rows +
+    '<div class="lv-card" style="margin-top:10px;"><b>' + esc(O.teamA) + '</b>' + swapRow('A') + summary('A') + '</div>' +
+    '<div class="lv-card"><b>' + esc(O.teamB) + '</b>' + swapRow('B') + summary('B') + '</div>' +
+    '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button><button class="btn btn-gold btn-block" onclick="lhOrdSave()">Save order</button></div>' +
+    '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lhOrdReset()">Reset to automatic order</button></div>');
+}
+function lhOrdSwap(side){
+  var O = lhOrd, a = +lvVal('loS' + side + '1'), b = +lvVal('loS' + side + '2');
+  if (a === b){ toast('Choose two different fencers'); return; }
+  var arr = side === 'A' ? O.A : O.B;
+  for (var i=0;i<arr.length;i++){ if (arr[i] === a) arr[i] = b; else if (arr[i] === b) arr[i] = a; }
+  lhOrdRender();
+  var ros = side === 'A' ? O.rA : O.rB; toast('Swapped ' + ros[a].name + ' and ' + ros[b].name);
+}
+function lhOrdSave(){
+  var O = lhOrd, x = LH.d.matches[O.id]; if (!x) return;
+  x.ordA = O.A.slice(); x.ordB = O.B.slice();
+  var dres = LH.d.meta.reserves === true;
+  if (x.resA !== true && x.resA !== false) x.resA = dres;
+  if (x.resB !== true && x.resB !== false) x.resB = dres;
+  lhOrd = null; lvCloseSheet(); lhDirty(); toast('Bout order saved — Publish to send it out');
+}
+function lhOrdReset(){
+  var O = lhOrd, x = LH.d.matches[O.id]; if (!x) return;
+  delete x.ordA; delete x.ordB; lhOrd = null; lvCloseSheet(); lhDirty(); toast('Back to the automatic order');
 }
 function lhPisteListMax(){
   var mx = Math.max(10, sInt(LH.d.meta.pistes,1,99,1));
@@ -4889,6 +5286,9 @@ function lhSaveBout(id, kind, again){
     rec = { fmt:'team', aRef:a, bRef:b, teamA:d.teams[a].name, teamB:d.teams[b].name };
     var cra = document.getElementById('lbResA'), crb = document.getElementById('lbResB');
     if (cra) rec.resA = !!cra.checked; if (crb) rec.resB = !!crb.checked;
+    if (x && x.aRef === a && x.ordA && x.resA === rec.resA) rec.ordA = x.ordA;
+    if (x && x.bRef === b && x.ordB && x.resB === rec.resB) rec.ordB = x.ordB;
+    if (x && x.gen) rec.gen = x.gen;
   } else {
     var an = sStr(lvVal('lbAn'),40), bn = sStr(lvVal('lbBn'),40);
     var fa = an ? null : d.fencers[a], fb = bn ? null : d.fencers[b];
@@ -5340,7 +5740,7 @@ function lhOpenInScoreboard(id){
   if (!x){ toast('Bout not found'); return; }
   var pubR = lhBuildPublic(); pubR.results = LH.results || {};
   var ev = liveCleanEvent(pubR);
-  liveConn = { code:LH.code, pin:LH.hostPin, eventName:m.meta.name, weapon:m.meta.weapon, pistes:m.meta.pistes, piste:x.piste, matches:(ev ? ev.matches : m.matches), fetchedAt:Date.now() };
+  liveConn = { code:LH.code, pin:LH.hostPin, ref:(Store.get('starport_refname','') || 'Host'), eventName:m.meta.name, weapon:m.meta.weapon, pistes:m.meta.pistes, piste:x.piste, matches:(ev ? ev.matches : m.matches), fetchedAt:Date.now() };
   liveSaveConn();
   goScoreboard();
   liveLoadMatch(id);
@@ -5636,7 +6036,8 @@ function lvvRender(){
     else if (LV.tab==='teams') html += lvTeamsViewHtml(m, LV.me);
     else html += lvMineHtml(m, LV.me);
   } catch(e){ html += '<div class="lv-empty">Some event data could not be shown.</div>'; }
-  html += '<div class="lv-expiry">\u23F3 This event and its results will be deleted on ' + esc(lvExpiryText(m.meta.expiresAt)) + ' (7 days after the event).</div>';
+  html += '<div class="lv-expiry">\u23F3 This event and its results will be deleted on ' + esc(lvExpiryText(m.meta.expiresAt)) + ' (7 days after the event).</div>' +
+    '<div class="copy-line">Starport Fencing Live \u00b7 \u00a9 2026 Portus Stellae Lab</div>';
   body.innerHTML = html;
 }
 function lvFindMatch(m, id){ for (var i=0;i<m.matches.length;i++) if (m.matches[i].id===id) return m.matches[i]; return null; }
@@ -5725,7 +6126,7 @@ function lvCheckinBanner(m){
   var fid = lvMyFid(m), mine = fid && m.checkins[fid];
   if (st === 'open'){
     if (mine) return '<div class="lv-ci ok">✅ <b>' + esc(LV.me) + '</b> checked in at ' + new Date(mine.at).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}) + '<span>' + here + '/' + present.length + ' here</span></div>';
-    return '<div class="lv-ci"><div><b>📍 Check-in is open</b><br><span>' + here + ' of ' + present.length + ' fencers here</span></div><button class="btn btn-gold btn-sm" onclick="lvCheckinSheet()">Check in</button></div>';
+    return '<div class="lv-ci"><div><b>📍 Check-in is open</b><br><span>' + here + ' of ' + present.length + ' fencers here' + (m.fencers.length > present.length ? ' · ' + (m.fencers.length - present.length) + ' absent' : '') + '</span></div><button class="btn btn-gold btn-sm" onclick="lvCheckinSheet()">Check in</button></div>';
   }
   return '<div class="lv-ci closed">Check-in closed · ' + here + ' of ' + present.length + ' fencers checked in' + (mine ? ' · ✅ you' : '') + '</div>';
 }
@@ -6008,7 +6409,7 @@ loadSettings();
 renderCountries();
 renderWeapons();
 renderFormats();
-try { liveLoadConn(); renderLivePanel(); if (!lvHandleLink()) liveHandleLink(); } catch(e){ liveConn = null; }
+try { liveLoadConn(); renderLivePanel(); if (!boutHandleLink() && !lvHandleLink()) liveHandleLink(); } catch(e){ liveConn = null; }
 </script>
 <script>
 if ("serviceWorker" in navigator && /^https?:/.test(location.protocol)) { window.addEventListener("load", function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); }); }
