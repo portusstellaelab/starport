@@ -340,6 +340,13 @@ label{display:block;font-size:12px;font-weight:500;color:var(--muted);text-trans
 .lv-podium{display:flex;flex-direction:column;gap:6px;margin:6px 0 12px;padding:12px;border-radius:12px;background:linear-gradient(135deg,rgba(201,162,39,.18),rgba(201,162,39,.04));border:1px solid rgba(201,162,39,.45);}
 .lv-podium div{display:flex;align-items:center;gap:10px;font-size:17px;}
 .lv-podium span{font-size:24px;}
+.lv-ticks{display:grid;grid-template-columns:1fr 1fr;gap:0 10px;max-height:30vh;overflow-y:auto;}
+.lv-ticks .lv-check{margin:4px 0;color:var(--white);font-size:14px;}
+.lt-rank{grid-template-columns:24px 1fr 40px 36px 100px;}
+.lt-medals{display:flex;gap:2px;justify-content:flex-end;}
+.lt-medals button{width:30px;height:30px;border-radius:7px;font-size:16px;opacity:.25;filter:grayscale(1);}
+.lt-medals button.on{opacity:1;filter:none;background:rgba(201,162,39,.2);}
+.lt-row.medal-g{background:rgba(201,162,39,.16);} .lt-row.medal-s{background:rgba(200,200,210,.10);} .lt-row.medal-b{background:rgba(205,127,50,.14);}
 .lv-x{width:32px;height:32px;border-radius:8px;color:var(--muted);font-size:20px;flex-shrink:0;}
 .held-cards-line{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin:2px 0 8px;font-family:'DM Mono',monospace;min-height:15px;}
 
@@ -3901,7 +3908,17 @@ function liveHandleLink(){
    Everything here is separate from the scoreboard. The scoreboard
    only meets Live through the "Connect to event" button.
    ============================================================ */
-var FIE_RELAY = [[2,2],[0,1],[1,0],[0,2],[2,0],[1,1],[0,0],[1,2],[2,1]];  // 3-6,1-5,2-4,1-6,3-4,2-5,1-4,2-6,3-5
+var FIE_RELAY = [[2,2],[0,1],[1,0],[0,2],[2,0],[1,1],[0,0],[1,2],[2,1]];
+/* Positions 0,1,2 = fencers 1,2,3 and 3 = the reserve (4th fencer).
+   Standard 3-fencer order (FIE): A 3,1,2,1,3,2,1,2,3  B 6,5,4,6,4,5,4,6,5.
+   With the reserve fencing, each of the 4 fences 2-3 bouts and nobody fences two in a row. */
+var RELAY_SEQ = { A3:[2,0,1,0,2,1,0,1,2], B3:[2,1,0,2,0,1,0,2,1], A4:[2,0,1,3,0,2,1,3,0], B4:[2,1,0,3,0,2,1,3,0] };
+function lvRelayFor(nA, nB, resA, resB){
+  if (nA < 3 || nB < 3) return null;
+  var a = (resA && nA >= 4) ? RELAY_SEQ.A4 : RELAY_SEQ.A3, b = (resB && nB >= 4) ? RELAY_SEQ.B4 : RELAY_SEQ.B3, out = [];
+  for (var i=0;i<9;i++) out.push([a[i], b[i]]);
+  return out;
+}  // 3-6,1-5,2-4,1-6,3-4,2-5,1-4,2-6,3-5
 var LIVE_PUBLIC_URL = 'https://portusstellaelab.github.io/starportfencing/';   // public web address of this app, used for share links when running inside the store app
 var LH = null;              // host session
 var LV = null;              // viewer session
@@ -4358,7 +4375,9 @@ function lhBuildPublic(){
       var ta = d.teams[x.aRef], tb = d.teams[x.bRef];
       if (ta){ x.teamA = ta.name; x.rosterA = ta.members.slice(0,4).map(function(id){ var f = d.fencers[id]; return { name:f.name, club:f.club||'', country:f.country||'' }; }); }
       if (tb){ x.teamB = tb.name; x.rosterB = tb.members.slice(0,4).map(function(id){ var f = d.fencers[id]; return { name:f.name, club:f.club||'', country:f.country||'' }; }); }
-      x.relay = (x.rosterA && x.rosterB && x.rosterA.length >= 3 && x.rosterB.length >= 3) ? FIE_RELAY : null;
+      var dres = d.meta.reserves === true;
+      var rA = (x.resA === true || x.resA === false) ? x.resA : dres, rB = (x.resB === true || x.resB === false) ? x.resB : dres;
+      x.relay = (x.rosterA && x.rosterB) ? lvRelayFor(x.rosterA.length, x.rosterB.length, rA, rB) : null;
     } else {
       var fa = d.fencers[x.aRef], fb = d.fencers[x.bRef];
       if (fa){ x.teamA = fa.name; x.clubA = fa.club||''; x.countryA = fa.country||''; }
@@ -4633,6 +4652,9 @@ function lhTeamsHtml(){
       '<div class="lv-chips">' + un.map(function(f){ return lhChip(f); }).join('') + '</div>' +
       ((LH.sel && lhTeamOf(LH.sel)) ? '<button class="btn btn-ghost btn-block" style="margin-top:8px;" onclick="lhMoveTo(null)">Move here</button>' : '') + '</div>';
   }
+  if (tids.some(function(t){ return d.teams[t].members.length >= 4; }))
+    html += '<div class="lv-card"><label class="lv-check" style="margin:0;"><input type="checkbox" ' + (d.meta.reserves === true ? 'checked' : '') + ' onchange="LH.d.meta.reserves=this.checked;lhDirty()"> Reserves (R) fence in matches</label>' +
+      '<div class="lv-sub" style="margin:4px 0 0;">' + (d.meta.reserves === true ? 'Teams of 4: all four fence (2\u20133 bouts each) in a rest-friendly order.' : 'Teams of 4: fencers 1\u20133 fence the FIE order; R only comes in as a substitute.') + ' You can change this for any single match.</div></div>';
   html += '<div class="live-actions"><button class="btn btn-ghost" onclick="lhAddTeam()">+ Add team</button>' +
     (tids.length ? '<button class="btn btn-ghost" style="color:var(--red2);" onclick="lhClearTeams()">Clear teams</button>' : '') + '</div>';
   return html;
@@ -4781,7 +4803,9 @@ function lhBoutSheet(id, kindOverride){
     var tOpts = '<option value="">Choose team</option>' + lhTeamIds().map(function(t){ return '<option value="' + t + '">' + esc(d.teams[t].name) + '</option>'; }).join('');
     if (!lhTeamIds().length) html += '<div class="live-banner">No teams yet. Build them in the Teams tab first.</div>';
     html += '<label>Team A</label><select id="lbA">' + tOpts + '</select><label style="margin-top:10px;">Team B</label><select id="lbB">' + tOpts + '</select>' +
-      '<div class="lv-sub">Team relay to 45. Relay order uses the standard 3-v-3 order when both teams have 3+ fencers.</div>';
+      '<div class="lv-sub">Team relay to 45 in the standard 3-v-3 order. If a team has a 4th fencer (reserve), choose whether they fence:</div>' +
+      '<label class="lv-check"><input type="checkbox" id="lbResA"> Team A’s reserve fences</label>' +
+      '<label class="lv-check"><input type="checkbox" id="lbResB"> Team B’s reserve fences</label>';
   } else {
     var fOpts = '<option value="">Choose fencer</option>' + Object.keys(d.fencers).sort(function(a,b){ return d.fencers[a].name.localeCompare(d.fencers[b].name); })
       .map(function(f){ return '<option value="' + f + '">' + esc(d.fencers[f].name) + '</option>'; }).join('');
@@ -4804,10 +4828,11 @@ function lhBoutSheet(id, kindOverride){
   lvSheet(html);
   if (x){
     lhSetPisteField(x.piste||0); lhSetRound(x.round||''); setVal('lbT', x.time||'');
-    if (kind==='team'){ setVal('lbA', x.aRef||''); setVal('lbB', x.bRef||''); }
+    if (kind==='team'){ setVal('lbA', x.aRef||''); setVal('lbB', x.bRef||''); var dr = LH.d.meta.reserves === true; var ca = document.getElementById('lbResA'), cb = document.getElementById('lbResB'); if (ca) ca.checked = (x.resA === true || x.resA === false) ? x.resA : dr; if (cb) cb.checked = (x.resB === true || x.resB === false) ? x.resB : dr; }
     else { setVal('lbFmt', x.fmt); setVal('lbA', x.aRef||''); setVal('lbB', x.bRef||''); if (!x.aRef) setVal('lbAn', x.teamA||''); if (!x.bRef) setVal('lbBn', x.teamB||''); }
   } else {
     lhSetPisteField(sInt(Store.get('starport_lh_lastpiste', 0),0,99,0)); lhSetRound(LH.lastRound || ''); setVal('lbT', '');
+    var nra = document.getElementById('lbResA'), nrb = document.getElementById('lbResB'); if (nra) nra.checked = LH.d.meta.reserves === true; if (nrb) nrb.checked = LH.d.meta.reserves === true;
   }
 }
 function lhPisteListMax(){
@@ -4862,6 +4887,8 @@ function lhSaveBout(id, kind, again){
     if (!d.teams[a] || !d.teams[b]){ toast('Choose both teams'); return; }
     if (a === b){ toast('Choose two different teams'); return; }
     rec = { fmt:'team', aRef:a, bRef:b, teamA:d.teams[a].name, teamB:d.teams[b].name };
+    var cra = document.getElementById('lbResA'), crb = document.getElementById('lbResB');
+    if (cra) rec.resA = !!cra.checked; if (crb) rec.resB = !!crb.checked;
   } else {
     var an = sStr(lvVal('lbAn'),40), bn = sStr(lvVal('lbBn'),40);
     var fa = an ? null : d.fencers[a], fb = bn ? null : d.fencers[b];
@@ -5004,7 +5031,7 @@ function lhTrSheet(){
   var sg = lhTrSuggest();
   if (sg.error){ toast(sg.error); return; }
   if (sg.done){ lhPodiumSheet(sg.champion); return; }
-  lhTrDraft = { n:sg.n, name:sg.name, pairs:sg.pairs.map(function(p){ return { a:p.a||'', b:p.b||'' }; }), bronze:sg.bronze || '', note:sg.note };
+  lhTrDraft = { n:sg.n, name:sg.name, pairs:sg.pairs.map(function(p){ return { a:p.a||'', b:p.b||'' }; }), bronze:sg.bronze ? [sg.bronze] : [], note:sg.note, reserves:LH.d.meta.reserves === true };
   lhTrRender();
 }
 function lhTrRender(){
@@ -5018,13 +5045,16 @@ function lhTrRender(){
     '<label>Round name</label><input id="trName" maxlength="30" value="' + escAttr(D.name) + '" oninput="lhTrDraft.name=this.value">' +
     '<label style="margin-top:10px;">Matches (choose BYE for a team that goes straight through)</label>' + (rows || '<div class="lv-sub">No matches yet.</div>') +
     '<button class="btn btn-ghost btn-block" style="margin-top:6px;" onclick="lhTrAdd()">+ Add a match</button>' +
-    '<label style="margin-top:12px;">\uD83E\uDD49 Bronze (3rd place) from this round</label><select onchange="lhTrDraft.bronze=this.value">' + '<option value="">None yet</option>' + T.map(function(t){ return '<option value="' + t + '"' + (t===D.bronze?' selected':'') + '>' + esc(LH.d.teams[t].name) + '</option>'; }).join('') + '</select>' +
+    '<label class="lv-check" style="margin-top:10px;"><input type="checkbox" ' + (D.reserves ? 'checked' : '') + ' onchange="lhTrDraft.reserves=this.checked"> Reserves (4th fencers) fence in these matches</label>' +
+    '<label style="margin-top:8px;">🥉 Bronze (3rd place) — tick one or more</label><div class="lv-ticks">' +
+      T.map(function(t){ return '<label class="lv-check"><input type="checkbox" ' + (D.bronze.indexOf(t) >= 0 ? 'checked' : '') + ' onchange="lhTrBronze(\'' + t + '\',this.checked)"> ' + esc(LH.d.teams[t].name) + '</label>'; }).join('') + '</div>' +
     '<div style="display:flex;gap:8px;margin-top:10px;"><div style="flex:1;"><label>From piste</label><input id="arFrom" type="number" inputmode="numeric" min="1" max="99" value="1"></div>' +
     '<div style="flex:1;"><label>To piste</label><input id="arTo" type="number" inputmode="numeric" min="1" max="99" value="' + Math.max(1, Math.min(4, D.pairs.filter(function(p){ return p.a && p.b; }).length || 1)) + '"></div></div>' +
     '<div id="trMsg" class="lv-sub" style="color:#f0c000;min-height:16px;"></div>' +
     '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button><button class="btn btn-gold btn-block" onclick="lhTrCreate()">Create round</button></div>');
 }
 function lhTrSet(i, k, v){ lhTrDraft.pairs[i][k] = v; }
+function lhTrBronze(t, on){ var b = lhTrDraft.bronze; var i = b.indexOf(t); if (on && i < 0) b.push(t); if (!on && i >= 0) b.splice(i,1); }
 function lhTrDel(i){ lhTrDraft.name = lvVal('trName') || lhTrDraft.name; lhTrDraft.pairs.splice(i,1); lhTrRender(); }
 function lhTrAdd(){ lhTrDraft.name = lvVal('trName') || lhTrDraft.name; lhTrDraft.pairs.push({ a:'', b:'' }); lhTrRender(); }
 function lhTrCreate(){
@@ -5038,7 +5068,7 @@ function lhTrCreate(){
     if (seen[p.a] || (p.b && seen[p.b])){ msg.textContent = (LH.d.teams[seen[p.a] ? p.a : p.b].name) + ' is in two matches.'; return; }
     seen[p.a] = 1; if (p.b) seen[p.b] = 1;
   }
-  if (D.bronze && seen[D.bronze]){ msg.textContent = 'The bronze team is also in a match this round.'; return; }
+  for (var bi=0; bi<D.bronze.length; bi++){ if (seen[D.bronze[bi]]){ msg.textContent = LH.d.teams[D.bronze[bi]].name + ' is marked bronze but is also in a match this round.'; return; } }
   if (!lhTR()) d.tr = { rounds:[], podium:{} };
   var tr = lhTR(), ids = [];
   var round = { name:D.name, pairs:[] };
@@ -5046,43 +5076,51 @@ function lhTrCreate(){
     var e = { a:p.a, b:p.b, mid:null };
     if (p.b){
       var id = lvId('m');
-      d.matches[id] = { fmt:'team', aRef:p.a, bRef:p.b, teamA:d.teams[p.a].name, teamB:d.teams[p.b].name, round:D.name, weapon:d.meta.weapon, piste:0, order:0, time:null, gen:true };
+      d.matches[id] = { resA:!!D.reserves, resB:!!D.reserves, fmt:'team', aRef:p.a, bRef:p.b, teamA:d.teams[p.a].name, teamB:d.teams[p.b].name, round:D.name, weapon:d.meta.weapon, piste:0, order:0, time:null, gen:true };
       e.mid = id; ids.push(id);
     }
     round.pairs.push(e);
   });
   tr.rounds.push(round);
-  if (D.bronze){ tr.podium.bronze = [D.bronze]; }
+  if (D.bronze.length){ var cur = (tr.podium.bronze || []).slice(); D.bronze.forEach(function(b){ if (cur.indexOf(b) < 0) cur.push(b); }); tr.podium.bronze = cur; }
   var from = sInt(lvVal('arFrom'),1,99,1), to = sInt(lvVal('arTo'),1,99,from); if (to < from){ var t = from; from = to; to = t; }
   var ps = []; for (var q=from;q<=to;q++) ps.push(q);
   lhSpread(ids, ps);
   LH.lastRound = D.name; lvCloseSheet(); lhDirty();
-  toast(D.name + ': ' + ids.length + ' match' + (ids.length!==1?'es':'') + (pairs.length > ids.length ? ' + ' + (pairs.length - ids.length) + ' bye' + (pairs.length - ids.length > 1 ? 's' : '') : '') + (D.bronze ? ' \u00b7 bronze: ' + d.teams[D.bronze].name : '') + ' \u2014 tap Publish');
+  toast(D.name + ': ' + ids.length + ' match' + (ids.length!==1?'es':'') + (pairs.length > ids.length ? ' + ' + (pairs.length - ids.length) + ' bye' + (pairs.length - ids.length > 1 ? 's' : '') : '') + (D.bronze.length ? ' \u00b7 bronze: ' + D.bronze.map(function(b){ return d.teams[b].name; }).join(', ') : '') + ' \u2014 tap Publish');
 }
 /* Podium: gold, silver, bronze (one or two). Suggested from the final, always editable. */
+function lhMedalPool(){
+  var d = LH.d;
+  if (d.meta.type === 'individual') return Object.keys(d.fencers).filter(function(f){ return !d.fencers[f].absent; }).sort(function(a,b){ return d.fencers[a].name.localeCompare(d.fencers[b].name); }).map(function(f){ return { id:f, name:d.fencers[f].name }; });
+  return lhTeamIds().map(function(t){ return { id:t, name:d.teams[t].name }; });
+}
 function lhPodiumSheet(champ){
   if (!lhTR()) LH.d.tr = { rounds:[], podium:{} };
-  var tr = lhTR(), pd = tr.podium, T = lhTeamIds();
+  var tr = lhTR(), pd = tr.podium, POOL = lhMedalPool(), T = POOL.map(function(x){ return x.id; });
+  var NAME = {}; POOL.forEach(function(x){ NAME[x.id] = x.name; });
   var gold = pd.gold || '', silver = pd.silver || '', bronze = (pd.bronze || []).slice();
   var last = tr.rounds[tr.rounds.length-1];
   if (last && last.pairs.length === 1){ var res = lhPairResult(last.pairs[0]); if (res.done && !res.bye){ gold = gold || res.winner; silver = silver || res.loser; } }
   if (champ && !gold) gold = champ;
-  function sel(id, v){ return '<select id="' + id + '"><option value="">\u2014</option>' + T.map(function(t){ return '<option value="' + t + '"' + (t===v?' selected':'') + '>' + esc(LH.d.teams[t].name) + '</option>'; }).join('') + '</select>'; }
+  function sel(id, v){ return '<select id="' + id + '"><option value="">\u2014</option>' + T.map(function(t){ return '<option value="' + t + '"' + (t===v?' selected':'') + '>' + esc(NAME[t]) + '</option>'; }).join('') + '</select>'; }
   lvSheet('<div class="sheet-title">\uD83C\uDFC6 Podium</div><div class="lv-sub" style="margin-top:0;">Filled in from the final where possible. Change anything, then Save and Publish.</div>' +
     '<label>\uD83E\uDD47 Gold</label>' + sel('pdG', gold) + '<label style="margin-top:8px;">\uD83E\uDD48 Silver</label>' + sel('pdS', silver) +
-    '<label style="margin-top:8px;">\uD83E\uDD49 Bronze</label>' + sel('pdB1', bronze[0]||'') + '<label style="margin-top:8px;">\uD83E\uDD49 Second bronze (optional)</label>' + sel('pdB2', bronze[1]||'') +
+    '<label style="margin-top:8px;">\uD83E\uDD49 Bronze \u2014 tick as many as you need</label><div class="lv-ticks">' +
+      T.map(function(t){ return '<label class="lv-check"><input type="checkbox" class="pdB" value="' + t + '" ' + (bronze.indexOf(t) >= 0 ? 'checked' : '') + '> ' + esc(NAME[t]) + '</label>'; }).join('') + '</div>' +
     '<div class="sheet-row"><button class="btn btn-ghost btn-block" onclick="lvCloseSheet()">Cancel</button><button class="btn btn-gold btn-block" onclick="lhPodiumSave()">Save podium</button></div>');
 }
 function lhPodiumSave(){
-  var tr = lhTR(), g = lvVal('pdG'), sv = lvVal('pdS'), b1 = lvVal('pdB1'), b2 = lvVal('pdB2');
-  var all = [g, sv, b1, b2].filter(Boolean), uniq = {};
-  for (var i=0;i<all.length;i++){ if (uniq[all[i]]){ toast('A team can only have one medal'); return; } uniq[all[i]] = 1; }
-  tr.podium = { gold:g || null, silver:sv || null, bronze:[b1, b2].filter(Boolean) };
+  var tr = lhTR(), g = lvVal('pdG'), sv = lvVal('pdS'), bs = [];
+  var cbs = document.querySelectorAll('#lvSheet .pdB'); for (var c=0;c<cbs.length;c++) if (cbs[c].checked) bs.push(cbs[c].value);
+  var all = [g, sv].filter(Boolean).concat(bs), uniq = {};
+  for (var i=0;i<all.length;i++){ if (uniq[all[i]]){ toast('Each one can only have one medal'); return; } uniq[all[i]] = 1; }
+  tr.podium = { gold:g || null, silver:sv || null, bronze:bs };
   lvCloseSheet(); lhDirty(); toast('Podium saved \u2014 tap Publish');
 }
 function lvPodiumHtml(m, pub){
   var tr = pub && pub.tr, pd = tr && tr.podium; if (!pd || typeof pd !== 'object') return '';
-  function nm(id){ for (var i=0;i<m.teams.length;i++) if (m.teams[i].id === sId(id)) return m.teams[i].name; return ''; }
+  function nm(id){ for (var i=0;i<m.teams.length;i++) if (m.teams[i].id === sId(id)) return m.teams[i].name; var f = m.fmap[sId(id)]; return f ? f.name : ''; }
   var g = pd.gold ? nm(pd.gold) : '', sv = pd.silver ? nm(pd.silver) : '';
   var br = []; if (pd.bronze && typeof pd.bronze === 'object') Object.keys(pd.bronze).forEach(function(k){ var n = nm(pd.bronze[k]); if (n) br.push(n); });
   if (!g && !sv && !br.length) return '';
@@ -5314,7 +5352,7 @@ function lhResultsHtml(){
   var html = '<div class="lv-card"><div class="lv-team-head"><span class="lv-team-name">' + (m.meta.locked ? '🔒 Event locked' : 'Accepting results') + '</span>' +
     '<button class="btn btn-ghost btn-sm" onclick="lhToggleLock()">' + (m.meta.locked ? 'Unlock' : 'Lock') + '</button></div>' +
     '<div class="lv-sub" style="margin-bottom:0;">' + (m.meta.locked ? 'Referees can no longer upload. Unlock to allow changes.' : 'Referee uploads count straight away. Lock the event when it is finished.') + '</div></div>';
-  html += lvStandingsHtml(m);
+  html += lhRankingHtml(m);
   if (!m.matches.length) return html + '<div class="lv-empty">Nothing scheduled yet.</div>';
   var rounds = [], by = {};
   lvRunningOrder(m).forEach(function(x){ var k = x.round || 'Other'; if (!by[k]){ by[k] = []; rounds.push(k); } by[k].push(x); });
@@ -5322,10 +5360,45 @@ function lhResultsHtml(){
   rounds.forEach(function(k){
     var fin = by[k].filter(function(x){ return lvClosed(m, x); }).length;
     html += '<div class="section-head">' + esc(k) + ' <span style="float:right;">' + fin + '/' + by[k].length + ' done</span></div>';
-    by[k].forEach(function(x){ html += lvMatchRow(m, x, null, ' onclick="lhResultSheet(\'' + x.id + '\')"', 'P' + (x.piste || '?')); });
+    by[k].forEach(function(x){ html += lvMatchRow(m, x, null, ' onclick="lhResultSheet(\'' + x.id + '\')"', 'P' + (x.piste || '?')); if (x.fmt === 'team' && m.results[x.id] && m.results[x.id].bouts.length) html += lvRelayDetails(m, x, false); });
   });
   html += '<div class="lv-sub">Tap any match to type in scores from a paper score sheet, or to fix a result.</div>';
   return html;
+}
+/* Live ranking after every finished match: wins, then indicator, then touches scored.
+   Tap a medal to set gold / silver / bronze (bronze can be several). */
+function lhRankingHtml(m){
+  var team = LH.d.meta.type === 'teams' || (LH.d.meta.type !== 'individual' && m.teams.length > 0);
+  var list = lvStandings(m, team), byName = {};
+  list.forEach(function(x){ byName[x.name] = x; });
+  var pool = lhMedalPool();
+  if (!team) pool = pool.filter(function(p){ return true; });
+  // everyone appears, even with no finished match yet
+  pool.forEach(function(p){ if (!byName[p.name]){ var z = { name:p.name, v:0, m:0, ts:0, tr:0, ind:0, ratio:0 }; list.push(z); byName[p.name] = z; } });
+  var idOf = {}; pool.forEach(function(p){ idOf[p.name] = p.id; });
+  var tr = lhTR(), pd = (tr && tr.podium) || {}, br = pd.bronze || [];
+  function medal(id){ return id === pd.gold ? 'g' : (id === pd.silver ? 's' : (br.indexOf(id) >= 0 ? 'b' : '')); }
+  var rank = { g:0, s:1, b:2, '':3 };
+  list.sort(function(a,b){ var ma = rank[medal(idOf[a.name])], mb = rank[medal(idOf[b.name])]; return (ma - mb) || (b.v - a.v) || (b.ind - a.ind) || (b.ts - a.ts) || a.name.localeCompare(b.name); });
+  if (!list.length) return '';
+  var html = '<div class="section-head">Ranking <span style="float:right;text-transform:none;letter-spacing:0;font-family:\'DM Sans\',sans-serif;">tap a medal to award it</span></div>' +
+    '<div class="lv-table"><div class="lt-row lt-rank lt-head"><span>#</span><span>' + (team ? 'Team' : 'Fencer') + '</span><span>W/M</span><span>Ind</span><span>Medal</span></div>';
+  list.forEach(function(x, i){
+    var id = idOf[x.name], md = medal(id);
+    html += '<div class="lt-row lt-rank' + (md ? ' medal-' + md : '') + '"><span>' + (i+1) + '</span><span class="lt-name">' + esc(x.name) + '</span><span>' + x.v + '/' + x.m + '</span><span>' + (x.ind>0?'+':'') + x.ind + '</span><span class="lt-medals">' +
+      (id ? ['g','s','b'].map(function(k){ return '<button class="' + (md===k ? 'on' : '') + '" onclick="lhSetMedal(\'' + id + '\',\'' + k + '\')">' + ({g:'🥇',s:'🥈',b:'🥉'})[k] + '</button>'; }).join('') : '') + '</span></div>';
+  });
+  html += '</div><div class="lv-sub">Ranked by wins, then indicator (touches scored minus received), then touches scored. Medals show to everyone after you Publish.</div>';
+  return html;
+}
+function lhSetMedal(id, k){
+  if (!lhTR()) LH.d.tr = { rounds:[], podium:{} };
+  var pd = lhTR().podium; pd.bronze = (pd.bronze || []).slice();
+  var had = (k==='g' && pd.gold===id) || (k==='s' && pd.silver===id) || (k==='b' && pd.bronze.indexOf(id) >= 0);
+  if (pd.gold === id) pd.gold = null; if (pd.silver === id) pd.silver = null;
+  pd.bronze = pd.bronze.filter(function(b){ return b !== id; });
+  if (!had){ if (k==='g') pd.gold = id; else if (k==='s') pd.silver = id; else pd.bronze.push(id); }
+  lhDirty();
 }
 function lhToggleLock(){
   if (LH.dirty){ toast('Publish your other changes first'); return; }
