@@ -1,0 +1,29 @@
+name: Fencing Live cleanup
+
+on:
+  schedule:
+    - cron: '17 16 * * *'        # every night, about 3:17am Melbourne time
+  workflow_dispatch:              # "Run workflow" button in the Actions tab
+    inputs:
+      dry_run:
+        description: 'Only list events (do not delete anything)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-save google-auth-library@9
+      - run: node .github/scripts/cleanup.mjs
+        env:
+          DB_URL: https://starport-live-default-rtdb.asia-southeast1.firebasedatabase.app
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
